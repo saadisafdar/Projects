@@ -1,145 +1,145 @@
-# email = {
-#     "from": "support@email.com",
+email = {
+    "from": "support@email.com",
     
-#     "to": "stu@edu.pk",
-#     "subject": "URGENT: Meeting Reminder",
-#     "body": "Don't forget about the meeting tomorrow at 10 AM.",
-# }
-# print("Emails Recieved:")
-# for key, value in email.items():
-#     print(f"{key}: {value}")
-# warnings = []
-# if "urgent" in email["subject"].lower():
-#     warnings.append("The email subject contains the word 'URGENT'.")
-# if "http://" in email["body"] or "https://" in email["body"]:
-#     warnings.append("The email contains a non HTTPS link.")
-# if email["from"].split("@")[-1].count("-") > 0 or len(email["from"].split("@")[-1].split(".")) < 2:
-#     warnings.append("The sender's email domain looks suspicious.")
-# if warnings:
-#     print("\nWarnings:")
-#     for w in warnings:
-#         print("- ", w)
-# else:
-#     print("\n - No obivous threats detected in the email. - ", "Still be cautious!")
+    "to": "stu@edu.pk",
+    "subject": "URGENT: Meeting Reminder",
+    "body": "Don't forget about the meeting tomorrow at 10 AM.",
+}
+print("Emails Recieved:")
+for key, value in email.items():
+    print(f"{key}: {value}")
+warnings = []
+if "urgent" in email["subject"].lower():
+    warnings.append("The email subject contains the word 'URGENT'.")
+if "http://" in email["body"] or "https://" in email["body"]:
+    warnings.append("The email contains a non HTTPS link.")
+if email["from"].split("@")[-1].count("-") > 0 or len(email["from"].split("@")[-1].split(".")) < 2:
+    warnings.append("The sender's email domain looks suspicious.")
+if warnings:
+    print("\nWarnings:")
+    for w in warnings:
+        print("- ", w)
+else:
+    print("\n - No obivous threats detected in the email. - ", "Still be cautious!")
 
 
-# import time
-# from queue import Queue
+import time
+from queue import Queue
 
-# SERVICE_CAPACITY = 5
-# requests = Queue()
+SERVICE_CAPACITY = 5
+requests = Queue()
 
-# for i in range(8):
-#     requests.put(f"Requests_{i}")
+for i in range(8):
+    requests.put(f"Requests_{i}")
 
-# processed = 0
-# print("Server starting capacity:" , SERVICE_CAPACITY)
-# while not requests.empty():
-#     if processed >= SERVICE_CAPACITY:
-#         print("Server Overloaded: response time increasing...")
-#         time.sleep(1)
-#     req = requests.get()
-#     print("Processing", req)
-#     processed += 1
-#     time.sleep(0.1)
-
-
-# users = {"student" : "1234pass"}
-
-# def authenticate(username, password):
-#     return users.get(username) == password
-
-# wordlist = ["1234", "pass1234", "password", "1234pass"]
-
-# for guess in wordlist:
-#     print("Trying password:", guess)
-#     if authenticate("student", guess):
-#         print("Password found: ", guess)
-#         break
-# else:
-#     print("Password not found in the tested wordlist")
+processed = 0
+print("Server starting capacity:" , SERVICE_CAPACITY)
+while not requests.empty():
+    if processed >= SERVICE_CAPACITY:
+        print("Server Overloaded: response time increasing...")
+        time.sleep(1)
+    req = requests.get()
+    print("Processing", req)
+    processed += 1
+    time.sleep(0.1)
 
 
-# def sender(msg):
-#     print("[Sender] sending:", msg)
-#     return msg
-# def network_path(message):
-#     print("[Hacker] intercepted:", message)
-#     return message
-# def receiver(msg):
-#     print("[Receiver] recieiving:", msg)
+users = {"student" : "1234pass"}
+
+def authenticate(username, password):
+    return users.get(username) == password
+
+wordlist = ["1234", "pass1234", "password", "1234pass"]
+
+for guess in wordlist:
+    print("Trying password:", guess)
+    if authenticate("student", guess):
+        print("Password found: ", guess)
+        break
+else:
+    print("Password not found in the tested wordlist")
+
+
+def sender(msg):
+    print("[Sender] sending:", msg)
+    return msg
+def network_path(message):
+    print("[Hacker] intercepted:", message)
+    return message
+def receiver(msg):
+    print("[Receiver] recieiving:", msg)
     
-# if __name__ == "__main__":
-#     s = sender("Sensitive: password123")
-#     r = network_path(s)
-#     receiver(r)
+if __name__ == "__main__":
+    s = sender("Sensitive: password123")
+    r = network_path(s)
+    receiver(r)
 
 
-# def analyze_emails():
-#     suspicious_words = ["urgent", "verify", "click here", "account"]
-#     risk_counts = {"Low Risk": 0, "Medium Risk": 0, "High Risk": 0}
-#     for i in range(1, 4):
-#         subject = input(f"Enter subject of Email {i}: ").lower()
-#         body = input(f"Enter body of Email {i}: ").lower()
-#         email_text = subject + " " + body
-#         flagged = [word for word in suspicious_words if word in email_text]
-#         red_flags = len(flagged)
-#         if red_flags == 0:
-#             risk = "Low Risk"
-#         elif red_flags == 1:
-#             risk = "Medium Risk"
-#         else:
-#             risk = "High Risk"
-#         risk_counts[risk] += 1
-#         print(f"\nEmail {i}:")
-#         print(f"Suspicious words found: {flagged if flagged else 'None'}")
-#         print(f"Total red flags: {red_flags}")
-#         print(f"Risk level: {risk}\n")
-#     print("Overall Summary:")
-#     print("Total emails analyzed: 3")
-#     print(f"Low Risk emails: {risk_counts['Low Risk']}")
-#     print(f"Medium Risk emails: {risk_counts['Medium Risk']}")
-#     print(f"High Risk emails: {risk_counts['High Risk']}")
-# analyze_emails()
+def analyze_emails():
+    suspicious_words = ["urgent", "verify", "click here", "account"]
+    risk_counts = {"Low Risk": 0, "Medium Risk": 0, "High Risk": 0}
+    for i in range(1, 4):
+        subject = input(f"Enter subject of Email {i}: ").lower()
+        body = input(f"Enter body of Email {i}: ").lower()
+        email_text = subject + " " + body
+        flagged = [word for word in suspicious_words if word in email_text]
+        red_flags = len(flagged)
+        if red_flags == 0:
+            risk = "Low Risk"
+        elif red_flags == 1:
+            risk = "Medium Risk"
+        else:
+            risk = "High Risk"
+        risk_counts[risk] += 1
+        print(f"\nEmail {i}:")
+        print(f"Suspicious words found: {flagged if flagged else 'None'}")
+        print(f"Total red flags: {red_flags}")
+        print(f"Risk level: {risk}\n")
+    print("Overall Summary:")
+    print("Total emails analyzed: 3")
+    print(f"Low Risk emails: {risk_counts['Low Risk']}")
+    print(f"Medium Risk emails: {risk_counts['Medium Risk']}")
+    print(f"High Risk emails: {risk_counts['High Risk']}")
+analyze_emails()
 
 
-# def sender(msg):
-#     checksum = sum(ord(c) for c in msg)
-#     packet = f"{msg}|{checksum}"
-#     print("Sender sends:", packet)
-#     return packet
+def sender(msg):
+    checksum = sum(ord(c) for c in msg)
+    packet = f"{msg}|{checksum}"
+    print("Sender sends:", packet)
+    return packet
 
-# def network(packet, tamper=False):
-#     if tamper:
-#         tampered_msg = packet.split('|')[0].replace("abc123", "ab123")  # Example tampering
-#         checksum = packet.split('|')[1]  # Keep old checksum without recalculating
-#         tampered_packet = f"{tampered_msg}|{checksum}"
-#         print("Attacker sends on:", tampered_packet)
-#         return tampered_packet
-#     else:
-#         print("Network sends:", packet)
-#         return packet
+def network(packet, tamper=False):
+    if tamper:
+        tampered_msg = packet.split('|')[0].replace("abc123", "ab123")  # Example tampering
+        checksum = packet.split('|')[1]  # Keep old checksum without recalculating
+        tampered_packet = f"{tampered_msg}|{checksum}"
+        print("Attacker sends on:", tampered_packet)
+        return tampered_packet
+    else:
+        print("Network sends:", packet)
+        return packet
 
-# def receiver(packet):
-#     msg, checksum_str = packet.split('|')
-#     checksum = sum(ord(c) for c in msg)
-#     print("Receiver gets packet:", packet)
-#     if str(checksum) == checksum_str:
-#         print("OK")
-#     else:
-#         print("Tampered!")
+def receiver(packet):
+    msg, checksum_str = packet.split('|')
+    checksum = sum(ord(c) for c in msg)
+    print("Receiver gets packet:", packet)
+    if str(checksum) == checksum_str:
+        print("OK")
+    else:
+        print("Tampered!")
 
-# # Demonstration without tampering
-# pkt = sender("abc123")
-# pkt = network(pkt, tamper=False)
-# receiver(pkt)
+# Demonstration without tampering
+pkt = sender("abc123")
+pkt = network(pkt, tamper=False)
+receiver(pkt)
 
-# print()  # Separator
+print()  # Separator
 
-# # Demonstration with tampering
-# pkt = sender("abc123")
-# pkt = network(pkt, tamper=True)
-# receiver(pkt)
+# Demonstration with tampering
+pkt = sender("abc123")
+pkt = network(pkt, tamper=True)
+receiver(pkt)
 
 
 
