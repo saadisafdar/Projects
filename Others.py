@@ -382,34 +382,40 @@
 
 
 
-# Can you check anyone Location using Python Code
+# # Can you check anyone Location using Python Code
 
-import phonenumbers
-from phonenumbers import timezone
-from phonenumbers import geocoder
-from phonenumbers import carrier
+# import phonenumbers
+# from phonenumbers import timezone
+# from phonenumbers import geocoder
+# from phonenumbers import carrier
 
-# Enter phone number along with country code
-number = input("Enter phone number with country code : ")
+# # Enter phone number along with country code
+# number = input("Enter phone number with country code : ")
 
-# Parsing String to the Phone number
-phoneNumber = phonenumbers.parse(number)
+# # Parsing String to the Phone number
+# phoneNumber = phonenumbers.parse(number)
 
-# printing the timezone using the timezone module
-timeZone = timezone.time_zones_for_number(phoneNumber)
-print("timeZone : " + str(timeZone))
+# # printing the timezone using the timezone module
+# timeZone = timezone.time_zones_for_number(phoneNumber)
+# print("timeZone : " + str(timeZone))
 
-# printing the geolocation of the given number using the geocoder module
-geolocation = geocoder.description_for_number(phoneNumber, "en")
-print("location : " + geolocation)
+# # printing the geolocation of the given number using the geocoder module
+# geolocation = geocoder.description_for_number(phoneNumber, "en")
+# print("location : " + geolocation)
 
-# printing the service provider
-service = carrier.name_for_number(phoneNumber, "en")
-print("service provider : " + service)
-
-
+# # printing the service provider
+# service = carrier.name_for_number(phoneNumber, "en")
+# print("service provider : " + service)
 
 
+from rembg import remove
+from PIL import Image
+input_path = 'clgot.jpeg"
+output_path = 'clgot.png'
+inp Image.open(input_path)
+output remove(inp)
+output.save(output_path)
+Image.open("clgot.png")
 
 
 

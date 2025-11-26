@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """
-HardGear Sentinel - Offline PPE detection (rule-based).
-Default person detector: HOG (no external model).
-Optional: MobileNet SSD if model files are provided in models/.
+HardGear Sentinel - Offline PPE detection (rule-based) with improved visuals.
 """
 
 import os
@@ -10,38 +8,40 @@ import cv2
 import numpy as np
 import pandas as pd
 import argparse
+import time
 from datetime import datetime
 
 # -------------------------
-# Configuration (tweakable)
+# Configuration
 # -------------------------
-CONF_MIN_PERSON_AREA = 4000   # ignore tiny detections
-RESIZE_WIDTH = 800           # speed/resolution tradeoff
+CONF_MIN_PERSON_AREA = 4000
+RESIZE_WIDTH = 800
 VERBOSE = False
 
-# HSV ranges for colors (tweak for your dataset lighting)
-# helmet: white, yellow, orange
+# Colors
+COLOR_SAFE = (0, 255, 0)
+COLOR_WARN = (0, 165, 255)
+COLOR_ALERT = (0, 0, 255)
+COLOR_TEXT_BG = (30, 30, 30)
+
+# PPE color filters
 HELMET_RANGES = [
-    ((0, 70, 120), (30, 255, 255)),    # yellow-ish
-    ((5, 70, 120), (20, 255, 255)),    # orange-ish
-    ((0, 0, 180), (180, 45, 255)),     # white-ish (low saturation, high value)
+    ((0, 70, 120), (30, 255, 255)),
+    ((5, 70, 120), (20, 255, 255)),
+    ((0, 0, 180), (180, 45, 255)),
 ]
-# vest: neon orange and neon green (typical safety vests)
 VEST_RANGES = [
-    ((5, 120, 120), (15, 255, 255)),   # orange neon
-    ((35, 80, 80), (90, 255, 255)),    # green neon
+    ((5, 120, 120), (15, 255, 255)),
+    ((35, 80, 80), (90, 255, 255)),
 ]
-
-# gloves: light gray/white near hands (optional)
 GLOVE_RANGES = [
-    ((0, 0, 150), (180, 60, 255)),     # light colors
+    ((0, 0, 150), (180, 60, 255)),
 ]
 
-# boots: dark region at feet (simple darkness test)
-BOOT_VALUE_THRESH = 70   # lower value -> dark
+BOOT_VALUE_THRESH = 70
 
 # -------------------------
-# Utilities
+# Helper functions
 # -------------------------
 def resize_keep_aspect(img, width=RESIZE_WIDTH):
     h, w = img.shape[:2]
@@ -60,8 +60,17 @@ def color_mask_from_ranges(hsv, ranges):
         mask = m if mask is None else cv2.bitwise_or(mask, m)
     return mask if mask is not None else np.zeros(hsv.shape[:2], dtype=np.uint8)
 
+def draw_text_bg(img, text, x, y, color):
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    scale = 0.45
+    thick = 1
+
+    (w, h), _ = cv2.getTextSize(text, font, scale, thick)
+    cv2.rectangle(img, (x, y - h - 6), (x + w + 4, y + 2), COLOR_TEXT_BG, -1)
+    cv2.putText(img, text, (x + 2, y - 4), font, scale, color, thick, cv2.LINE_AA)
+
 # -------------------------
-# Person detection
+# Person Detector
 # -------------------------
 class PersonDetector:
     def __init__(self, models_dir='models'):
@@ -72,14 +81,17 @@ class PersonDetector:
             self.net = cv2.dnn.readNetFromCaffe(prototxt, caffemodel)
             self.use_dnn = True
         else:
-            if VERBOSE: print("Using HOG person detector (built-in)")
+            if VERBOSE: print("Using HOG detector")
             self.hog = cv2.HOGDescriptor()
             self.hog.setSVMDetector(cv2.HOGDescriptor_getDefaultPeopleDetector())
             self.use_dnn = False
 
     def detect(self, image):
         if self.use_dnn:
-            blob = cv2.dnn.blobFromImage(cv2.resize(image, (300, 300)), 0.007843, (300, 300), 127.5)
+            blob = cv2.dnn.blobFromImage(
+                cv2.resize(image, (300, 300)),
+                0.007843, (300, 300), 127.5
+            )
             self.net.setInput(blob)
             detections = self.net.forward()
             h, w = image.shape[:2]
@@ -87,7 +99,6 @@ class PersonDetector:
             for i in range(detections.shape[2]):
                 conf = float(detections[0, 0, i, 2])
                 cls = int(detections[0, 0, i, 1])
-                # class 15 is 'person' in MobileNetSSD
                 if conf > 0.4 and cls == 15:
                     box = detections[0, 0, i, 3:7] * np.array([w, h, w, h])
                     (x1, y1, x2, y2) = box.astype("int")
@@ -95,177 +106,170 @@ class PersonDetector:
             return boxes
         else:
             rects, weights = self.hog.detectMultiScale(image, winStride=(8,8), padding=(8,8), scale=1.05)
-            boxes = []
-            for (x, y, w, h), wt in zip(rects, weights):
-                boxes.append((x, y, x+w, y+h, float(wt)))
+            boxes = [(x, y, x+w, y+h, float(wt)) for (x,y,w,h), wt in zip(rects, weights)]
             return boxes
 
 # -------------------------
-# PPE detection heuristics
+# PPE detection logic
 # -------------------------
-def detect_helmet(head_region):
-    if head_region.size == 0:
-        return False, 0.0
-    hsv = cv2.cvtColor(head_region, cv2.COLOR_BGR2HSV)
+def detect_helmet(r):
+    if r.size == 0: return False, 0.0
+    hsv = cv2.cvtColor(r, cv2.COLOR_BGR2HSV)
     mask = color_mask_from_ranges(hsv, HELMET_RANGES)
-    count = int(cv2.countNonZero(mask))
-    total = mask.size
-    pct = 100.0 * count / (total + 1)
-    return (pct > 2.0), pct  # threshold 2% of head area
+    pct = 100.0 * cv2.countNonZero(mask) / (mask.size + 1)
+    return pct > 2.0, pct
 
-def detect_vest(torso_region):
-    if torso_region.size == 0:
-        return False, 0.0
-    hsv = cv2.cvtColor(torso_region, cv2.COLOR_BGR2HSV)
+def detect_vest(r):
+    if r.size == 0: return False, 0.0
+    hsv = cv2.cvtColor(r, cv2.COLOR_BGR2HSV)
     mask = color_mask_from_ranges(hsv, VEST_RANGES)
-    count = int(cv2.countNonZero(mask))
-    total = mask.size
-    pct = 100.0 * count / (total + 1)
-    return (pct > 3.0), pct  # threshold 3%
+    pct = 100.0 * cv2.countNonZero(mask) / (mask.size + 1)
+    return pct > 3.0, pct
 
-def detect_gloves(hand_region):
-    if hand_region.size == 0:
-        return False, 0.0
-    hsv = cv2.cvtColor(hand_region, cv2.COLOR_BGR2HSV)
+def detect_gloves(r):
+    if r.size == 0: return False, 0.0
+    hsv = cv2.cvtColor(r, cv2.COLOR_BGR2HSV)
     mask = color_mask_from_ranges(hsv, GLOVE_RANGES)
-    count = int(cv2.countNonZero(mask))
-    total = mask.size
-    pct = 100.0 * count / (total + 1)
-    return (pct > 2.0), pct
+    pct = 100.0 * cv2.countNonZero(mask) / (mask.size + 1)
+    return pct > 2.0, pct
 
-def detect_boots(feet_region):
-    if feet_region.size == 0:
-        return False, 0.0
-    gray = cv2.cvtColor(feet_region, cv2.COLOR_BGR2GRAY)
-    # count dark pixels
+def detect_boots(r):
+    if r.size == 0: return False, 0.0
+    gray = cv2.cvtColor(r, cv2.COLOR_BGR2GRAY)
     dark = cv2.threshold(gray, BOOT_VALUE_THRESH, 255, cv2.THRESH_BINARY_INV)[1]
-    count = int(cv2.countNonZero(dark))
-    total = dark.size
-    pct = 100.0 * count / (total + 1)
-    return (pct > 6.0), pct
+    pct = 100.0 * cv2.countNonZero(dark) / (dark.size + 1)
+    return pct > 6.0, pct
 
 # -------------------------
-# Crop helpers
+# Region crop
 # -------------------------
 def crop_regions(img, box):
     x1, y1, x2, y2 = box
     h = y2 - y1
     w = x2 - x1
-    # head: top 25% of box
-    head_h = max(5, int(0.25 * h))
-    head = img[y1:y1+head_h, x1:x2]
-    # torso: middle 40% (below head)
-    torso_y1 = y1 + head_h
-    torso_h = max(5, int(0.4 * h))
-    torso = img[torso_y1:torso_y1+torso_h, x1:x2]
-    # hands: left/right quarter height around mid-body
-    hand_h = max(5, int(0.18 * h))
-    hands_y = y1 + int(0.45 * h)
-    left_hand = img[hands_y:hands_y+hand_h, x1:x1+int(0.3*w)]
-    right_hand = img[hands_y:hands_y+hand_h, x2-int(0.3*w):x2]
-    # feet: bottom 15%
-    feet_h = max(5, int(0.15 * h))
-    feet = img[y2-feet_h:y2, x1:x2]
-    return {'head': head, 'torso': torso, 'left_hand': left_hand, 'right_hand': right_hand, 'feet': feet}
+
+    head = img[y1:y1+int(0.25*h), x1:x2]
+    torso = img[y1+int(0.25*h):y1+int(0.65*h), x1:x2]
+    lh = img[y1+int(0.45*h):y1+int(0.63*h), x1:x1+int(0.3*w)]
+    rh = img[y1+int(0.45*h):y1+int(0.63*h), x2-int(0.3*w):x2]
+    feet = img[y2-int(0.15*h):y2, x1:x2]
+
+    return {
+        "head": head,
+        "torso": torso,
+        "left_hand": lh,
+        "right_hand": rh,
+        "feet": feet
+    }
 
 # -------------------------
-# Main processing per image
+# Single image analysis
 # -------------------------
-def analyze_image(path, detector, output_dir):
+def analyze_image(path, detector, output_dir, fps_info=None):
     img = cv2.imread(path)
     if img is None:
-        raise RuntimeError("Failed to read " + path)
+        raise RuntimeError("Cannot read " + path)
+
     img_resized, scale = resize_keep_aspect(img)
     boxes = detector.detect(img_resized)
-    results = []
     annotated = img_resized.copy()
+    results = []
+
+    # Banner at top
+    cv2.rectangle(annotated, (0, 0), (annotated.shape[1], 32), (25, 25, 25), -1)
+    if fps_info is not None:
+        draw_text_bg(annotated, f"FPS: {fps_info}", annotated.shape[1]-120, 28, (255,255,255))
+
     for (x1, y1, x2, y2, score) in boxes:
-        # filter tiny
-        area = (x2-x1) * (y2-y1)
-        if area < CONF_MIN_PERSON_AREA:
+        if (x2-x1)*(y2-y1) < CONF_MIN_PERSON_AREA:
             continue
+
         regs = crop_regions(img_resized, (x1, y1, x2, y2))
-        helmet_ok, helmet_pct = detect_helmet(regs['head'])
-        vest_ok, vest_pct = detect_vest(regs['torso'])
-        glove_ok_l, glove_pct_l = detect_gloves(regs['left_hand'])
-        glove_ok_r, glove_pct_r = detect_gloves(regs['right_hand'])
-        glove_ok = glove_ok_l or glove_ok_r
-        boot_ok, boot_pct = detect_boots(regs['feet'])
-        # safety logic
-        # simple: helmet + vest -> SAFE; else UNSAFE
+        helmet_ok, h_pct = detect_helmet(regs["head"])
+        vest_ok, v_pct = detect_vest(regs["torso"])
+        gl_l, glp_l = detect_gloves(regs["left_hand"])
+        gl_r, glp_r = detect_gloves(regs["right_hand"])
+        boot_ok, b_pct = detect_boots(regs["feet"])
+
+        glove_ok = gl_l or gl_r
+        glove_pct = (glp_l + glp_r) / 2.0
+
         if helmet_ok and vest_ok:
             status = "SAFE"
-            color = (0, 255, 0)
+            color = COLOR_SAFE
         elif helmet_ok and not vest_ok:
             status = "WARNING (No Vest)"
-            color = (0, 165, 255)
+            color = COLOR_WARN
         else:
             status = "UNSAFE"
-            color = (0, 0, 255)
-        label = f"{status} | H:{helmet_pct:.1f}% V:{vest_pct:.1f}% G:{(glove_pct_l+glove_pct_r)/2:.1f}% B:{boot_pct:.1f}%"
-        # annotate
+            color = COLOR_ALERT
+
+        label = f"{status} | H:{h_pct:.1f}% V:{v_pct:.1f}% G:{glove_pct:.1f}% B:{b_pct:.1f}%"
+
         cv2.rectangle(annotated, (x1, y1), (x2, y2), color, 2)
-        cv2.putText(annotated, label, (x1, max(y1-8,0)), cv2.FONT_HERSHEY_SIMPLEX, 0.45, color, 1)
+        draw_text_bg(annotated, label, x1, y1, color)
+
         results.append({
-            'box': (int(x1/scale), int(y1/scale), int(x2/scale), int(y2/scale)),
-            'helmet_ok': bool(helmet_ok),
-            'helmet_pct': float(helmet_pct),
-            'vest_ok': bool(vest_ok),
-            'vest_pct': float(vest_pct),
-            'glove_ok': bool(glove_ok),
-            'boot_ok': bool(boot_ok),
-            'status': status
+            "status": status
         })
-    # save annotated
-    base = os.path.basename(path)
-    out_img = os.path.join(output_dir, "annotated_" + base)
-    cv2.imwrite(out_img, annotated)
+
+    out_path = os.path.join(output_dir, "annotated_" + os.path.basename(path))
+    cv2.imwrite(out_path, annotated)
+
     summary = {
-        'image': base,
-        'total': len(results),
-        'safe': sum(1 for r in results if r['status'] == "SAFE"),
-        'unsafe': sum(1 for r in results if r['status'] != "SAFE"),
-        'timestamp': datetime.utcnow().isoformat()
+        "image": os.path.basename(path),
+        "total": len(results),
+        "safe": sum(1 for r in results if r["status"] == "SAFE"),
+        "unsafe": sum(1 for r in results if r["status"] != "SAFE"),
     }
-    return results, summary, out_img
+
+    return results, summary, out_path
 
 # -------------------------
-# CLI and batch processing
+# Main
 # -------------------------
 def main():
-    parser = argparse.ArgumentParser(description="HardGear Sentinel - PPE detection")
-    parser.add_argument('--input', '-i', required=True, help='Input folder with images')
-    parser.add_argument('--output', '-o', required=True, help='Output folder for annotated images and CSV')
-    parser.add_argument('--models', '-m', default='models', help='Models dir (for MobileNet SSD, optional)')
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--input", "-i", required=True)
+    parser.add_argument("--output", "-o", required=True)
+    parser.add_argument("--models", "-m", default="models")
     args = parser.parse_args()
 
     os.makedirs(args.output, exist_ok=True)
-    detector = PersonDetector(models_dir=args.models)
 
+    detector = PersonDetector(models_dir=args.models)
     rows = []
+
+    prev = time.time()
+
     for fname in sorted(os.listdir(args.input)):
-        if not fname.lower().endswith(('.jpg','.jpeg','.png','.bmp')):
+        if not fname.lower().endswith((".jpg",".jpeg",".png",".bmp")):
             continue
+
+        now = time.time()
+        fps = int(1 / (now - prev)) if (now - prev) > 0 else 0
+        prev = now
+
         path = os.path.join(args.input, fname)
         try:
-            results, summary, out_img = analyze_image(path, detector, args.output)
+            results, summary, out_img = analyze_image(path, detector, args.output, fps_info=fps)
         except Exception as e:
-            print("Error processing", fname, ":", str(e))
+            print("Error:", fname, e)
             continue
-        rows.append({
-            'image': summary['image'],
-            'total': summary['total'],
-            'safe': summary['safe'],
-            'unsafe': summary['unsafe'],
-            'score': int(0 if summary['total']==0 else (100*summary['safe']//summary['total']))
-        })
-        print(f"[{summary['image']}] Total: {summary['total']} Safe: {summary['safe']} Unsafe: {summary['unsafe']} -> saved {out_img}")
 
-    # save CSV
-    df = pd.DataFrame(rows, columns=['image','total','safe','unsafe','score'])
-    csv_path = os.path.join(args.output, 'safety_report.csv')
-    df.to_csv(csv_path, index=False)
-    print("CSV report saved:", csv_path)
+        rows.append({
+            "image": summary["image"],
+            "total": summary["total"],
+            "safe": summary["safe"],
+            "unsafe": summary["unsafe"],
+            "score": int(0 if summary["total"] == 0 else (100 * summary["safe"] // summary["total"]))
+        })
+
+        print(f"[{summary['image']}] Safe: {summary['safe']} Unsafe: {summary['unsafe']} -> saved {out_img}")
+
+    df = pd.DataFrame(rows)
+    df.to_csv(os.path.join(args.output, "safety_report.csv"), index=False)
+    print("CSV report saved.")
 
 if __name__ == "__main__":
     main()
