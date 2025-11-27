@@ -1,0 +1,6 @@
+Student_ID,Name,Class,Math_Marks,Science_Marks,English_Marks,Total_Marks,Average_Marks,Status
+101,Ali,10,85,78,92,255,85.0,Pass
+102,Sara,10,92,88,85,265,88.33333333333333,Pass
+103,Ahmed,10,45,52,60,157,52.333333333333336,Fail
+104,Fatima,10,78,85,79,242,80.66666666666667,Pass
+105,Usman,10,65,70,68,203,67.66666666666667,Pass

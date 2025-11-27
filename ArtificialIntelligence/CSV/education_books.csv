@@ -1,0 +1,4 @@
+Book_ID,Title,Author,Genre,Price,Stock,Published_Year,Inventory_Value
+B001,Python Basics,Dr. Ahmed,Education,25,50,2020,1250
+B002,Data Science,Dr. Sara,Education,40,30,2022,1200
+B005,AI Fundamentals,Dr. Usman,Education,35,25,2023,875

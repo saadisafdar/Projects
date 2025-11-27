@@ -1,0 +1,6 @@
+Book_ID,Title,Author,Genre,Price,Stock,Published_Year
+B001,Python Basics,Dr. Ahmed,Education,25,50,2020
+B002,Data Science,Dr. Sara,Education,40,30,2022
+B003,Mystery Island,John Doe,Fiction,15,20,2019
+B004,History of Pakistan,Prof. Khan,History,30,15,2021
+B005,AI Fundamentals,Dr. Usman,Education,35,25,2023

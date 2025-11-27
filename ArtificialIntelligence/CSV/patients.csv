@@ -1,0 +1,6 @@
+Patient_ID,Name,Age,Blood_Group,Temperature,BP_Systolic,BP_Diastolic
+P001,Ali Raza,35,A+,98.6,120,80
+P002,Sara Khan,28,B+,99.1,118,78
+P003,Ahmed Ali,45,O+,98.9,135,85
+P004,Fatima Noor,62,AB+,100.2,142,90
+P005,Usman Malik,29,A+,98.4,122,79

@@ -114,3 +114,8 @@ print(df.sort_values(by='Age', ascending=False))
 print("\n== Grouping and aggregation ==")
 print(df.groupby('Grade').size())
 print(df.groupby('Grade')['Age'].mean())
+
+print("\nBasic statistics:")
+print(df.describe())
+
+
