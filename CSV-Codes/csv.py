@@ -16,14 +16,14 @@
 # print("CSV file created successfully!")
 
 
-import pandas as pd
+# import pandas as pd
 
-# Read the CSV file
-df = pd.read_csv('students.csv')
+# # Read the CSV file
+# df = pd.read_csv('students.csv')
 
-# Display the data
-print("Complete DataFrame:")
-print(df)
+# # Display the data
+# print("Complete DataFrame:")
+# print(df)
 
 
 
