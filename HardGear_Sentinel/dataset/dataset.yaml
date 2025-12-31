@@ -1,0 +1,15 @@
+path: dataset
+
+train: train/images
+val: val/images
+
+nc: 7
+
+names:
+  0: person
+  1: helmet
+  2: goggles
+  3: mask
+  4: gloves
+  5: vest
+  6: boots
