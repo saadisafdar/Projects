@@ -1,15 +1,8 @@
-path: dataset
+path: /home/saadi/Repositories/Python Programs/HardGear_Sentinel/dataset
 
-train: train/images
-val: val/images
+train: images/train
+val: images/val
 
-nc: 7
-
+nc: 1
 names:
-  0: person
-  1: helmet
-  2: goggles
-  3: mask
-  4: gloves
-  5: vest
-  6: boots
+  0: helmet
