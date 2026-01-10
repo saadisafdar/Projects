@@ -1,24 +1,94 @@
-# Python
+# =========================
+# Python core
+# =========================
 __pycache__/
 *.py[cod]
 *.pyo
+*.pyd
+*.so
 
+# =========================
 # Virtual environments
+# =========================
 venv/
-.env/
 .venv/
+env/
+.env/
 
-# IDEs
-.vscode/
-.idea/
-
-# OS
-.DS_Store
-
-# Build / cache
+# =========================
+# pip / packaging
+# =========================
+pip-wheel-metadata/
+*.egg
+*.egg-info/
 build/
 dist/
-*.egg-info/
+wheels/
 
-# Jupyter
+# =========================
+# Jupyter / notebooks
+# =========================
 .ipynb_checkpoints/
+
+# =========================
+# Machine Learning / Data
+# =========================
+*.pt
+*.pth
+*.onnx
+*.ckpt
+*.h5
+*.npz
+*.npy
+*.pkl
+*.joblib
+
+# =========================
+# Datasets & outputs (optional but recommended)
+# =========================
+data/
+datasets/
+runs/
+outputs/
+results/
+logs/
+
+# =========================
+# Matplotlib
+# =========================
+.matplotlib/
+
+# =========================
+# Torch / CUDA cache
+# =========================
+.cache/
+torch_cache/
+cuda/
+
+# =========================
+# IDEs & Editors
+# =========================
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# =========================
+# OS files
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# Test / coverage
+# =========================
+.pytest_cache/
+.coverage
+htmlcov/
+
+# =========================
+# Temporary files
+# =========================
+*.log
+*.tmp
+*.bak
