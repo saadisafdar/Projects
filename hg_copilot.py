@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-HeadGear Sentinel – PPE Object Detection for Construction Workers (Image-Only)
+HeadGear Sentinel PPE Object Detection for Construction Workers (Image-Only)
 -----------------------------------------------------------------------------
 Single-file academic project that demonstrates:
 - Loading an image dataset from a folder-per-class structure
