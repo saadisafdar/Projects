@@ -1,0 +1,20 @@
+Image: image_187_jpg.rf.d70aadcfa16dd2ee3c2f67673eccd259.jpg
+========================================
+
+✅ DETECTED OBJECTS:
+  • human: 1 instances (avg confidence: 95.26%)
+  • vest: 1 instances (avg confidence: 89.46%)
+  • helmet: 1 instances (avg confidence: 80.00%)
+  • boots: 2 instances (avg confidence: 74.60%)
+
+========================================
+
+⚠ MISSING PPE ITEMS:
+  • gloves
+  • no helmet
+  • no vest
+
+========================================
+
+SAFETY COMPLIANCE: 57.1%
+

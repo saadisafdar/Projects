@@ -1,0 +1,40 @@
+📊 DETECTION RESULTS ANALYSIS
+==================================================
+
+📁 Image: img18.rf.55f85705bc2ab67368f3425349bbd2bd.jpg
+📅 Analysis Time: 2026-01-14 19:13:45
+==================================================
+
+✅ DETECTED PPE ITEMS:
+------------------------------
+🔴 no vest:
+   • Instances: 1/1 ✓ SATISFIED
+   • Avg Confidence: 25.3%
+   • Max Confidence: 25.3%
+
+==================================================
+
+⚠ MISSING PPE ITEMS:
+------------------------------
+🔴 boots - CRITICAL MISSING
+🔴 gloves - CRITICAL MISSING
+🔴 helmet - CRITICAL MISSING
+🟡 human - Recommended
+🔴 no helmet - CRITICAL MISSING
+🔴 vest - CRITICAL MISSING
+
+==================================================
+
+📈 SAFETY COMPLIANCE ANALYSIS
+------------------------------
+Overall Safety Score: 15.5%
+
+Breakdown:
+• boots: ❌ Missing (0 pts)
+• gloves: ❌ Missing (0 pts)
+• helmet: ❌ Missing (0 pts)
+• human: ❌ Missing (0 pts)
+• no helmet: ❌ Missing (0 pts)
+• no vest: ✓ Complete (100 pts)
+• vest: ❌ Missing (0 pts)
+
