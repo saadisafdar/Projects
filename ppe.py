@@ -28,7 +28,7 @@ class PPE_Detection_App:
     def __init__(self, root):
         """Initialize the main application window"""
         self.root = root
-        self.root.title("PPE Detection System - AI Lab Project")
+        self.root.title("PPE Detection System - HeadGear Sentinel")
         self.root.geometry("1400x900")
         self.root.configure(bg='#f0f0f0')
         
@@ -58,7 +58,7 @@ class PPE_Detection_App:
         """Create the training section (Tab 1)"""
         # (Training section code remains the same as before)
         training_frame = ttk.Frame(self.notebook)
-        self.notebook.add(training_frame, text="🟦 SECTION 1 — TRAINING")
+        self.notebook.add(training_frame, text="🟦 TRAINING")
         
         # Title
         title_label = tk.Label(training_frame, text="PPE Model Training", 
@@ -189,7 +189,7 @@ dataset/
     def create_detection_section(self):
         """Create the detection section (Tab 2) - FIXED IMAGE DISPLAY"""
         detection_frame = ttk.Frame(self.notebook)
-        self.notebook.add(detection_frame, text="🟦 SECTION 2 — DETECTION")
+        self.notebook.add(detection_frame, text="🟦 DETECTION")
         
         # Title
         title_label = tk.Label(detection_frame, text="PPE Detection", 
@@ -411,7 +411,7 @@ dataset/
     def create_results_section(self):
         """Create the results and analysis section (Tab 3)"""
         results_frame = ttk.Frame(self.notebook)
-        self.notebook.add(results_frame, text="🟦 SECTION 3 — RESULTS & ANALYSIS")
+        self.notebook.add(results_frame, text="🟦 RESULTS & ANALYSIS")
         
         # Title
         title_label = tk.Label(results_frame, text="Detection Results & Analysis", 

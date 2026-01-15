@@ -1,28 +1,28 @@
 📊 DETECTION RESULTS ANALYSIS
 ==================================================
 
-📁 Image: image_209_jpg.rf.7be3e48edfc3caf5c596e9c025d6f35d.jpg
-📅 Analysis Time: 2026-01-15 15:42:03
+📁 Image: image_170_jpg.rf.f565351e372d6223f4e743bce033c0bb.jpg
+📅 Analysis Time: 2026-01-15 21:45:51
 ==================================================
 
 ✅ DETECTED PPE ITEMS:
 ------------------------------
-🟡 human:
-   • Instances: 1/1 ✓ SATISFIED
-   • Avg Confidence: 94.3%
-   • Max Confidence: 94.3%
 🔴 vest:
    • Instances: 1/1 ✓ SATISFIED
-   • Avg Confidence: 89.2%
-   • Max Confidence: 89.2%
+   • Avg Confidence: 82.6%
+   • Max Confidence: 82.6%
 🔴 boots:
-   • Instances: 2/2 ✓ SATISFIED
-   • Avg Confidence: 80.3%
-   • Max Confidence: 82.5%
+   • Instances: 4/2 ✓ SATISFIED
+   • Avg Confidence: 75.0%
+   • Max Confidence: 80.8%
+🟡 human:
+   • Instances: 2/1 ✓ SATISFIED
+   • Avg Confidence: 71.4%
+   • Max Confidence: 75.0%
 🔴 helmet:
    • Instances: 1/1 ✓ SATISFIED
-   • Avg Confidence: 61.0%
-   • Max Confidence: 61.0%
+   • Avg Confidence: 71.9%
+   • Max Confidence: 71.9%
 
 ==================================================
 
