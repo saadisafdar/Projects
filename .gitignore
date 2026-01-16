@@ -44,14 +44,35 @@ wheels/
 *.joblib
 
 # =========================
-# Datasets & outputs (optional but recommended)
+# DATASETS (IMPORTANT)
+# Ignore images + labels inside datasets
 # =========================
-data/
+dataset/
 datasets/
+dataset*/        # dataset1, dataset2, etc.
+
+# If you want to be extra explicit:
+dataset/**/images/
+dataset/**/labels/
+
+# =========================
+# YOLO / Training outputs
+# =========================
 runs/
 outputs/
 results/
 logs/
+
+# =========================
+# Image formats (ONLY inside datasets, NOT global)
+# =========================
+dataset/**/*.jpg
+dataset/**/*.jpeg
+dataset/**/*.png
+dataset/**/*.bmp
+dataset/**/*.tiff
+dataset/**/*.webp
+dataset/**/*.txt
 
 # =========================
 # Matplotlib

@@ -33,6 +33,32 @@ class PPE_Detection_App:
         self.root.geometry("1400x900")
         self.root.configure(bg='#2c3e50')
         
+        # Create main frame with scrollbars
+        self.main_frame = tk.Frame(root, bg='#2c3e50')
+        self.main_frame.pack(fill='both', expand=True)
+        
+        # Create canvas for scrolling
+        self.canvas = tk.Canvas(self.main_frame, bg='#2c3e50', highlightthickness=0)
+        self.v_scrollbar = ttk.Scrollbar(self.main_frame, orient="vertical", command=self.canvas.yview)
+        self.h_scrollbar = ttk.Scrollbar(self.main_frame, orient="horizontal", command=self.canvas.xview)
+        
+        self.canvas.configure(yscrollcommand=self.v_scrollbar.set, xscrollcommand=self.h_scrollbar.set)
+        
+        self.v_scrollbar.pack(side="right", fill="y")
+        self.h_scrollbar.pack(side="bottom", fill="x")
+        self.canvas.pack(side="left", fill="both", expand=True)
+        
+        # Create scrollable frame
+        self.scrollable_frame = tk.Frame(self.canvas, bg='#2c3e50')
+        self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
+        
+        # Bind configure event to update scroll region
+        self.scrollable_frame.bind("<Configure>", lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all")))
+        
+        # Bind mouse wheel for scrolling
+        self.canvas.bind_all("<MouseWheel>", self._on_mousewheel)
+        self.canvas.bind_all("<Shift-MouseWheel>", self._on_shift_mousewheel)
+        
         # Application state variables
         self.dataset_path = ""
         self.model = None
@@ -51,7 +77,7 @@ class PPE_Detection_App:
         self.current_detected_photo = None
         
         # Create the main notebook (tab system)
-        self.notebook = ttk.Notebook(root)
+        self.notebook = ttk.Notebook(self.scrollable_frame)
         self.notebook.pack(fill='both', expand=True, padx=10, pady=10)
         
         # Style configuration
@@ -67,6 +93,14 @@ class PPE_Detection_App:
         
         # Schedule canvas initialization after GUI is fully loaded
         self.root.after(100, self.initialize_canvas_placeholders)
+    
+    def _on_mousewheel(self, event):
+        """Handle mouse wheel scrolling"""
+        self.canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+    
+    def _on_shift_mousewheel(self, event):
+        """Handle shift+mouse wheel horizontal scrolling"""
+        self.canvas.xview_scroll(int(-1*(event.delta/120)), "units")
     
     def setup_styles(self):
         """Configure custom styles for the application"""
@@ -425,10 +459,14 @@ dataset/
                                   relief='solid', borderwidth=1)
         orig_frame.pack(side='left', fill='both', expand=True, padx=(0, 10), pady=5)
         
-        # Canvas for original image
-        self.original_canvas = tk.Canvas(orig_frame, bg='#34495e', highlightthickness=0,
-                                        width=400, height=300)
-        self.original_canvas.pack(fill='both', expand=True, padx=5, pady=5)
+        # Frame for original image with fixed size
+        self.orig_image_frame = tk.Frame(orig_frame, bg='#34495e', width=400, height=300)
+        self.orig_image_frame.pack(fill='both', expand=True, padx=5, pady=5)
+        self.orig_image_frame.pack_propagate(False)
+        
+        # Label for original image
+        self.original_image_label = tk.Label(self.orig_image_frame, bg='#34495e')
+        self.original_image_label.pack(fill='both', expand=True)
         
         # Detected image section
         det_frame = tk.LabelFrame(image_container, text="Detected Image", 
@@ -437,10 +475,14 @@ dataset/
                                  relief='solid', borderwidth=1)
         det_frame.pack(side='right', fill='both', expand=True, pady=5)
         
-        # Canvas for detected image
-        self.detected_canvas = tk.Canvas(det_frame, bg='#34495e', highlightthickness=0,
-                                        width=400, height=300)
-        self.detected_canvas.pack(fill='both', expand=True, padx=5, pady=5)
+        # Frame for detected image with fixed size
+        self.det_image_frame = tk.Frame(det_frame, bg='#34495e', width=400, height=300)
+        self.det_image_frame.pack(fill='both', expand=True, padx=5, pady=5)
+        self.det_image_frame.pack_propagate(False)
+        
+        # Label for detected image
+        self.detected_image_label = tk.Label(self.det_image_frame, bg='#34495e')
+        self.detected_image_label.pack(fill='both', expand=True)
         
         # Navigation buttons
         nav_frame = tk.Frame(preview_card, bg='#f8f9fa')
@@ -473,37 +515,15 @@ dataset/
     
     def initialize_canvas_placeholders(self):
         """Initialize canvas placeholders after GUI is fully loaded"""
-        if hasattr(self, 'original_canvas') and hasattr(self, 'detected_canvas'):
-            self.show_placeholder_images()
+        self.show_placeholder_images()
     
     def show_placeholder_images(self):
         """Show placeholder text when no images are loaded"""
-        # Clear both canvases
-        self.original_canvas.delete("all")
-        self.detected_canvas.delete("all")
-        
-        # Get canvas dimensions
-        orig_width = self.original_canvas.winfo_width() or 400
-        orig_height = self.original_canvas.winfo_height() or 300
-        
-        det_width = self.detected_canvas.winfo_width() or 400
-        det_height = self.detected_canvas.winfo_height() or 300
-        
-        # Draw placeholder on original canvas
-        self.original_canvas.create_text(
-            orig_width // 2, orig_height // 2,
-            text="Upload an image to start\n(Click 'Single Image' or 'Image Folder')",
-            fill='#95a5a6', font=('Arial', 12),
-            justify='center'
-        )
-        
-        # Draw placeholder on detected canvas
-        self.detected_canvas.create_text(
-            det_width // 2, det_height // 2,
-            text="Detection results will appear here\n(After uploading, click 'Run Detection')",
-            fill='#95a5a6', font=('Arial', 12),
-            justify='center'
-        )
+        # Clear both labels
+        self.original_image_label.config(image='', text="Upload an image to start\n(Click 'Single Image' or 'Image Folder')",
+                                        font=('Arial', 12), fg='#95a5a6', compound='center')
+        self.detected_image_label.config(image='', text="Detection results will appear here\n(After uploading, click 'Run Detection')",
+                                        font=('Arial', 12), fg='#95a5a6', compound='center')
     
     def create_results_section(self):
         """Create the enhanced results and analysis section"""
@@ -1054,44 +1074,25 @@ dataset/
     def display_original_image(self, image_path):
         """Display the original image in the preview panel"""
         try:
-            # Clear canvas
-            self.original_canvas.delete("all")
-            
             # Load image
             img = Image.open(image_path)
             self.original_image_pil = img.copy()
             
-            # Get canvas dimensions
-            canvas_width = self.original_canvas.winfo_width()
-            canvas_height = self.original_canvas.winfo_height()
-            
-            # If canvas is too small, use default
-            if canvas_width < 50 or canvas_height < 50:
-                canvas_width = 400
-                canvas_height = 300
-            
-            # Calculate resize dimensions to fit canvas while maintaining aspect ratio
-            img_width, img_height = img.size
-            ratio = min(canvas_width / img_width, canvas_height / img_height)
-            new_width = int(img_width * ratio)
-            new_height = int(img_height * ratio)
-            
-            # Resize image
-            img_resized = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+            # Resize image to fit the frame (400x300)
+            img.thumbnail((380, 280), Image.Resampling.LANCZOS)
             
             # Convert to PhotoImage
-            self.current_original_photo = ImageTk.PhotoImage(img_resized)
+            self.current_original_photo = ImageTk.PhotoImage(img)
             
-            # Display image on canvas
-            self.original_canvas.create_image(
-                canvas_width // 2,
-                canvas_height // 2,
+            # Display image on label
+            self.original_image_label.config(
                 image=self.current_original_photo,
-                anchor='center'
+                text="",
+                compound='center'
             )
             
-            # Store reference
-            self.original_canvas.image = self.current_original_photo
+            # Store reference to prevent garbage collection
+            self.original_image_label.image = self.current_original_photo
             
             # Enable detect button if model is loaded
             if self.model:
@@ -1104,9 +1105,6 @@ dataset/
     def display_detected_image(self, image_path, results):
         """Display the detected image with bounding boxes"""
         try:
-            # Clear canvas
-            self.detected_canvas.delete("all")
-            
             # Load image with OpenCV
             img_cv = cv2.imread(image_path)
             if img_cv is None:
@@ -1173,36 +1171,21 @@ dataset/
             img_pil = Image.fromarray(img_rgb)
             self.detected_image_pil = img_pil.copy()
             
-            # Get canvas dimensions
-            canvas_width = self.detected_canvas.winfo_width()
-            canvas_height = self.detected_canvas.winfo_height()
-            
-            if canvas_width < 50 or canvas_height < 50:
-                canvas_width = 400
-                canvas_height = 300
-            
-            # Calculate resize dimensions
-            img_width, img_height = img_pil.size
-            ratio = min(canvas_width / img_width, canvas_height / img_height)
-            new_width = int(img_width * ratio)
-            new_height = int(img_height * ratio)
-            
-            # Resize image
-            img_resized = img_pil.resize((new_width, new_height), Image.Resampling.LANCZOS)
+            # Resize image to fit the frame (400x300)
+            img_pil.thumbnail((380, 280), Image.Resampling.LANCZOS)
             
             # Convert to PhotoImage
-            self.current_detected_photo = ImageTk.PhotoImage(img_resized)
+            self.current_detected_photo = ImageTk.PhotoImage(img_pil)
             
-            # Display image on canvas
-            self.detected_canvas.create_image(
-                canvas_width // 2,
-                canvas_height // 2,
+            # Display image on label
+            self.detected_image_label.config(
                 image=self.current_detected_photo,
-                anchor='center'
+                text="",
+                compound='center'
             )
             
-            # Store reference
-            self.detected_canvas.image = self.current_detected_photo
+            # Store reference to prevent garbage collection
+            self.detected_image_label.image = self.current_detected_photo
             
         except Exception as e:
             messagebox.showerror("Error", f"Cannot display detected image: {str(e)}")
@@ -1210,20 +1193,12 @@ dataset/
 
     def show_detected_placeholder(self):
         """Show placeholder for detected image"""
-        self.detected_canvas.delete("all")
-        
-        # Get canvas dimensions
-        canvas_width = self.detected_canvas.winfo_width() or 400
-        canvas_height = self.detected_canvas.winfo_height() or 300
-        
-        # Draw placeholder
-        self.detected_canvas.create_text(
-            canvas_width // 2,
-            canvas_height // 2,
+        self.detected_image_label.config(
+            image='',
             text="Run detection to see results",
-            fill='#95a5a6',
             font=('Arial', 12),
-            justify='center'
+            fg='#95a5a6',
+            compound='center'
         )
 
     def get_class_color(self, class_id):
@@ -1260,21 +1235,23 @@ dataset/
             # Get confidence threshold
             conf_threshold = self.confidence_var.get()
             
-            # Run detection on all images
-            for i, image_path in enumerate(self.image_paths):
-                results = self.model(image_path, conf=conf_threshold)
-                self.detection_results_list.append(results)
-                
-                # Display first image results
-                if i == 0:
-                    self.display_detected_image(image_path, results)
-                    self.process_detection_results(results, image_path)
-                    
-                    if self.save_var.get():
-                        self.save_detection_output(results, image_path)
+            # Run detection on current image
+            current_image_path = self.image_paths[self.current_image_index]
+            results = self.model(current_image_path, conf=conf_threshold)
+            
+            # Store results
+            self.detection_results_list = [results]
+            
+            # Display detection results
+            self.display_detected_image(current_image_path, results)
+            self.process_detection_results(results, current_image_path)
             
             # Enable navigation for multiple images
             self.update_image_navigation()
+            
+            # Save output if requested
+            if self.save_var.get():
+                self.save_detection_output(results, current_image_path)
             
         except Exception as e:
             messagebox.showerror("Error", f"Detection failed: {str(e)}")
@@ -1286,12 +1263,8 @@ dataset/
             self.display_original_image(self.image_paths[self.current_image_index])
             self.update_image_navigation()
             
-            # Show detection results if available
-            if self.current_image_index < len(self.detection_results_list):
-                self.display_detected_image(
-                    self.image_paths[self.current_image_index],
-                    self.detection_results_list[self.current_image_index]
-                )
+            # Clear detection results when changing image
+            self.show_detected_placeholder()
     
     def show_next_image(self):
         """Show next image in the list"""
@@ -1300,12 +1273,8 @@ dataset/
             self.display_original_image(self.image_paths[self.current_image_index])
             self.update_image_navigation()
             
-            # Show detection results if available
-            if self.current_image_index < len(self.detection_results_list):
-                self.display_detected_image(
-                    self.image_paths[self.current_image_index],
-                    self.detection_results_list[self.current_image_index]
-                )
+            # Clear detection results when changing image
+            self.show_detected_placeholder()
     
     def update_image_navigation(self):
         """Update navigation buttons and counter"""
