@@ -1,0 +1,1 @@
+# Secure Configuration Management\n\n# This file contains secure settings that can be used across the application.\n\nDATABASE_URL = "your_database_url"\nSECRET_KEY = "your_secret_key"\nDEBUG = False\nALLOWED_HOSTS = ["your_domain.com"]\n
