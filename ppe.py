@@ -1,6 +1,7 @@
 """
 PPE Image Detection Desktop Application
 Complete YOLOv8-based PPE detection system with training and inference
+Enhanced GUI with professional results section
 Author: AI Lab Project
 Date: 2026-01-14
 """
@@ -24,13 +25,39 @@ from ultralytics import YOLO
 
 class PPE_Detection_App:
     """Main application class for PPE Detection System"""
-    
+
     def __init__(self, root):
         """Initialize the main application window"""
         self.root = root
-        self.root.title("PPE Detection System - HeadGear Sentinel")
+        self.root.title("PPE Detection System - HeadGear Sentinel v2.0")
         self.root.geometry("1400x900")
-        self.root.configure(bg='#f0f0f0')
+        self.root.configure(bg='#2c3e50')
+        
+        # Create main frame with scrollbars
+        self.main_frame = tk.Frame(root, bg='#2c3e50')
+        self.main_frame.pack(fill='both', expand=True)
+        
+        # Create canvas for scrolling
+        self.canvas = tk.Canvas(self.main_frame, bg='#2c3e50', highlightthickness=0)
+        self.v_scrollbar = ttk.Scrollbar(self.main_frame, orient="vertical", command=self.canvas.yview)
+        self.h_scrollbar = ttk.Scrollbar(self.main_frame, orient="horizontal", command=self.canvas.xview)
+        
+        self.canvas.configure(yscrollcommand=self.v_scrollbar.set, xscrollcommand=self.h_scrollbar.set)
+        
+        self.v_scrollbar.pack(side="right", fill="y")
+        self.h_scrollbar.pack(side="bottom", fill="x")
+        self.canvas.pack(side="left", fill="both", expand=True)
+        
+        # Create scrollable frame
+        self.scrollable_frame = tk.Frame(self.canvas, bg='#2c3e50')
+        self.canvas.create_window((0, 0), window=self.scrollable_frame, anchor="nw")
+        
+        # Bind configure event to update scroll region
+        self.scrollable_frame.bind("<Configure>", lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all")))
+        
+        # Bind mouse wheel for scrolling
+        self.canvas.bind_all("<MouseWheel>", self._on_mousewheel)
+        self.canvas.bind_all("<Shift-MouseWheel>", self._on_shift_mousewheel)
         
         # Application state variables
         self.dataset_path = ""
@@ -41,10 +68,20 @@ class PPE_Detection_App:
         self.training_thread = None
         self.is_training = False
         self.ppe_requirements = {}  # Store PPE requirements for each class
+        self.current_model_path = ""
+        
+        # Image display variables
+        self.original_image_pil = None
+        self.detected_image_pil = None
+        self.current_original_photo = None
+        self.current_detected_photo = None
         
         # Create the main notebook (tab system)
-        self.notebook = ttk.Notebook(root)
+        self.notebook = ttk.Notebook(self.scrollable_frame)
         self.notebook.pack(fill='both', expand=True, padx=10, pady=10)
+        
+        # Style configuration
+        self.setup_styles()
         
         # Create the three main sections
         self.create_training_section()
@@ -53,47 +90,91 @@ class PPE_Detection_App:
         
         # Set initial status
         self.update_status("Idle")
+        
+        # Schedule canvas initialization after GUI is fully loaded
+        self.root.after(100, self.initialize_canvas_placeholders)
+    
+    def _on_mousewheel(self, event):
+        """Handle mouse wheel scrolling"""
+        self.canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+    
+    def _on_shift_mousewheel(self, event):
+        """Handle shift+mouse wheel horizontal scrolling"""
+        self.canvas.xview_scroll(int(-1*(event.delta/120)), "units")
+    
+    def setup_styles(self):
+        """Configure custom styles for the application"""
+        style = ttk.Style()
+        style.theme_use('clam')
+        
+        # Configure colors
+        style.configure('Custom.TNotebook', background='#34495e')
+        style.configure('Custom.TNotebook.Tab', 
+                       background='#2c3e50', 
+                       foreground='white',
+                       padding=[20, 5])
+        style.map('Custom.TNotebook.Tab', 
+                 background=[('selected', '#3498db')],
+                 foreground=[('selected', 'white')])
+        
+        # Apply style to notebook
+        self.notebook.configure(style='Custom.TNotebook')
     
     def create_training_section(self):
-        """Create the training section (Tab 1)"""
-        # (Training section code remains the same as before)
+        """Create the training section with enhanced GUI"""
         training_frame = ttk.Frame(self.notebook)
-        self.notebook.add(training_frame, text="🟦 TRAINING")
+        self.notebook.add(training_frame, text="🏋️ TRAINING")
         
-        # Title
-        title_label = tk.Label(training_frame, text="PPE Model Training", 
-                              font=('Arial', 16, 'bold'), bg='#f0f0f0')
-        title_label.pack(pady=(10, 20))
+        # Main container with gradient background
+        main_container = tk.Frame(training_frame, bg='#ecf0f1')
+        main_container.pack(fill='both', expand=True, padx=2, pady=2)
         
-        # Main content frame
-        content_frame = tk.Frame(training_frame, bg='#f0f0f0')
-        content_frame.pack(fill='both', expand=True, padx=20)
+        # Header
+        header_frame = tk.Frame(main_container, bg='#3498db', height=80)
+        header_frame.pack(fill='x')
+        header_frame.pack_propagate(False)
         
-        # Left panel - Dataset configuration
-        left_panel = tk.Frame(content_frame, bg='#ffffff', relief='solid', borderwidth=1)
-        left_panel.pack(side='left', fill='both', expand=True, padx=(0, 10))
+        tk.Label(header_frame, text="🧠 PPE Model Training", 
+                font=('Arial', 20, 'bold'), bg='#3498db', fg='white').pack(pady=20)
         
-        tk.Label(left_panel, text="Dataset Configuration", font=('Arial', 12, 'bold'), 
-                bg='#ffffff').pack(pady=10)
+        # Content area
+        content_frame = tk.Frame(main_container, bg='white')
+        content_frame.pack(fill='both', expand=True, padx=20, pady=20)
+        
+        # Left panel - Configuration
+        config_frame = tk.Frame(content_frame, bg='white', relief='flat')
+        config_frame.pack(side='left', fill='both', expand=True, padx=(0, 10))
+        
+        # Dataset configuration card
+        dataset_card = tk.Frame(config_frame, bg='#f8f9fa', relief='groove', borderwidth=2)
+        dataset_card.pack(fill='x', pady=(0, 15))
+        
+        tk.Label(dataset_card, text="📂 Dataset Configuration", 
+                font=('Arial', 14, 'bold'), bg='#f8f9fa').pack(pady=15, padx=20, anchor='w')
         
         # Dataset selection
-        dataset_frame = tk.Frame(left_panel, bg='#ffffff')
-        dataset_frame.pack(fill='x', padx=20, pady=10)
+        dataset_row = tk.Frame(dataset_card, bg='#f8f9fa')
+        dataset_row.pack(fill='x', padx=20, pady=(0, 10))
         
-        tk.Label(dataset_frame, text="Dataset Folder:", bg='#ffffff').pack(anchor='w')
+        tk.Label(dataset_row, text="Dataset Folder:", bg='#f8f9fa', 
+                font=('Arial', 11)).pack(side='left', padx=(0, 10))
         
-        self.dataset_entry = tk.Entry(dataset_frame, width=50)
+        self.dataset_entry = tk.Entry(dataset_row, width=40, font=('Arial', 10),
+                                     relief='solid', borderwidth=1)
         self.dataset_entry.pack(side='left', fill='x', expand=True, padx=(0, 10))
         
-        browse_btn = tk.Button(dataset_frame, text="Browse", 
-                              command=self.browse_dataset, bg='#4CAF50', fg='white')
+        browse_btn = tk.Button(dataset_row, text="Browse", 
+                              command=self.browse_dataset, 
+                              bg='#3498db', fg='white', font=('Arial', 10),
+                              relief='raised', borderwidth=2, padx=15)
         browse_btn.pack(side='right')
         
-        # Dataset format information
-        format_frame = tk.Frame(left_panel, bg='#ffffff')
+        # Format information
+        format_frame = tk.Frame(dataset_card, bg='#e8f4f8', relief='solid', borderwidth=1)
         format_frame.pack(fill='x', padx=20, pady=10)
         
-        format_text = """Required Dataset Structure:
+        format_text = """📁 Required Dataset Structure:
+
 dataset/
 ├── data.yaml
 ├── train/images/
@@ -103,262 +184,290 @@ dataset/
 └── test/images/ (optional)"""
         
         format_label = tk.Label(format_frame, text=format_text, justify='left', 
-                               bg='#f8f9fa', relief='solid', borderwidth=1)
-        format_label.pack(fill='x', pady=5)
+                               bg='#e8f4f8', font=('Courier', 9), padx=10, pady=10)
+        format_label.pack()
         
         # Validation button
-        validate_btn = tk.Button(left_panel, text="Validate Dataset Structure", 
-                                command=self.validate_dataset, bg='#2196F3', fg='white')
-        validate_btn.pack(pady=10)
+        validate_btn = tk.Button(dataset_card, text="🔍 Validate Dataset", 
+                                command=self.validate_dataset, 
+                                bg='#2ecc71', fg='white', font=('Arial', 11, 'bold'),
+                                relief='raised', borderwidth=2, padx=20, pady=8)
+        validate_btn.pack(pady=15)
         
-        self.validation_label = tk.Label(left_panel, text="", bg='#ffffff')
-        self.validation_label.pack()
+        self.validation_label = tk.Label(dataset_card, text="", bg='#f8f9fa',
+                                        font=('Arial', 10))
+        self.validation_label.pack(pady=(0, 15))
         
-        # Training parameters
-        params_frame = tk.Frame(left_panel, bg='#ffffff')
-        params_frame.pack(fill='x', padx=20, pady=20)
+        # Training parameters card
+        params_card = tk.Frame(config_frame, bg='#f8f9fa', relief='groove', borderwidth=2)
+        params_card.pack(fill='x', pady=15)
         
-        tk.Label(params_frame, text="Training Parameters", font=('Arial', 11, 'bold'), 
-                bg='#ffffff').pack(anchor='w', pady=(0, 10))
+        tk.Label(params_card, text="⚙️ Training Parameters", 
+                font=('Arial', 14, 'bold'), bg='#f8f9fa').pack(pady=15, padx=20, anchor='w')
         
         # Epochs input
-        epoch_frame = tk.Frame(params_frame, bg='#ffffff')
-        epoch_frame.pack(fill='x', pady=5)
+        epoch_frame = tk.Frame(params_card, bg='#f8f9fa')
+        epoch_frame.pack(fill='x', padx=20, pady=10)
         
-        tk.Label(epoch_frame, text="Epochs:", bg='#ffffff').pack(side='left')
-        self.epoch_entry = tk.Entry(epoch_frame, width=15)
+        tk.Label(epoch_frame, text="Epochs:", bg='#f8f9fa', 
+                font=('Arial', 11)).pack(side='left', padx=(0, 20))
+        
+        self.epoch_entry = tk.Entry(epoch_frame, width=15, font=('Arial', 10),
+                                   relief='solid', borderwidth=1)
         self.epoch_entry.insert(0, "100")
-        self.epoch_entry.pack(side='left', padx=(10, 0))
+        self.epoch_entry.pack(side='left')
         
         # Image size selector
-        size_frame = tk.Frame(params_frame, bg='#ffffff')
-        size_frame.pack(fill='x', pady=5)
+        size_frame = tk.Frame(params_card, bg='#f8f9fa')
+        size_frame.pack(fill='x', padx=20, pady=10)
         
-        tk.Label(size_frame, text="Image Size:", bg='#ffffff').pack(side='left')
+        tk.Label(size_frame, text="Image Size:", bg='#f8f9fa', 
+                font=('Arial', 11)).pack(side='left', padx=(0, 20))
+        
         self.size_var = tk.StringVar(value="640")
         size_options = ["320", "416", "512", "640", "768"]
-        size_menu = tk.OptionMenu(size_frame, self.size_var, *size_options)
-        size_menu.pack(side='left', padx=(10, 0))
+        size_menu = ttk.Combobox(size_frame, textvariable=self.size_var, 
+                                values=size_options, state='readonly',
+                                width=15, font=('Arial', 10))
+        size_menu.pack(side='left')
         
-        # Right panel - Training controls and logs
-        right_panel = tk.Frame(content_frame, bg='#ffffff', relief='solid', borderwidth=1)
-        right_panel.pack(side='right', fill='both', expand=True)
+        # Right panel - Training controls
+        control_frame = tk.Frame(content_frame, bg='white', relief='flat')
+        control_frame.pack(side='right', fill='both', expand=True)
         
-        # Training controls
-        controls_frame = tk.Frame(right_panel, bg='#ffffff')
-        controls_frame.pack(fill='x', padx=20, pady=20)
+        # Status card
+        status_card = tk.Frame(control_frame, bg='#f8f9fa', relief='groove', borderwidth=2)
+        status_card.pack(fill='x', pady=(0, 15))
+        
+        tk.Label(status_card, text="📊 Training Status", 
+                font=('Arial', 14, 'bold'), bg='#f8f9fa').pack(pady=15, padx=20, anchor='w')
         
         # Status indicator
-        self.status_frame = tk.Frame(controls_frame, bg='#e0e0e0', height=30)
-        self.status_frame.pack(fill='x', pady=(0, 20))
+        self.status_frame = tk.Frame(status_card, bg='#e0e0e0', height=50)
+        self.status_frame.pack(fill='x', padx=20, pady=(0, 20))
         self.status_frame.pack_propagate(False)
         
         self.status_label = tk.Label(self.status_frame, text="Status: Idle", 
-                                    bg='#e0e0e0', font=('Arial', 10))
-        self.status_label.pack(side='left', padx=10)
+                                    bg='#e0e0e0', font=('Arial', 12, 'bold'))
+        self.status_label.pack(side='left', padx=20)
         
         self.status_indicator = tk.Label(self.status_frame, text="●", 
-                                        fg='gray', font=('Arial', 14))
-        self.status_indicator.pack(side='right', padx=10)
+                                        fg='gray', font=('Arial', 24))
+        self.status_indicator.pack(side='right', padx=20)
         
-        # Start training button
-        self.train_btn = tk.Button(controls_frame, text="Start Training", 
+        # Training buttons
+        button_frame = tk.Frame(status_card, bg='#f8f9fa')
+        button_frame.pack(fill='x', padx=20, pady=(0, 20))
+        
+        self.train_btn = tk.Button(button_frame, text="▶ Start Training", 
                                   command=self.start_training, 
-                                  bg='#4CAF50', fg='white', font=('Arial', 11))
-        self.train_btn.pack(pady=10)
+                                  bg='#2ecc71', fg='white', font=('Arial', 12, 'bold'),
+                                  relief='raised', borderwidth=2, padx=30, pady=10)
+        self.train_btn.pack(side='left', padx=(0, 10))
         
-        # Stop training button
-        self.stop_btn = tk.Button(controls_frame, text="Stop Training", 
+        self.stop_btn = tk.Button(button_frame, text="⏹ Stop Training", 
                                  command=self.stop_training, 
-                                 bg='#f44336', fg='white', font=('Arial', 11),
+                                 bg='#e74c3c', fg='white', font=('Arial', 12, 'bold'),
+                                 relief='raised', borderwidth=2, padx=30, pady=10,
                                  state='disabled')
-        self.stop_btn.pack(pady=10)
+        self.stop_btn.pack(side='left')
         
-        # Training logs
-        log_frame = tk.Frame(right_panel, bg='#ffffff')
-        log_frame.pack(fill='both', expand=True, padx=20, pady=(0, 20))
+        # Training logs card
+        log_card = tk.Frame(control_frame, bg='#f8f9fa', relief='groove', borderwidth=2)
+        log_card.pack(fill='both', expand=True)
         
-        tk.Label(log_frame, text="Training Logs", font=('Arial', 11, 'bold'), 
-                bg='#ffffff').pack(anchor='w', pady=(0, 10))
+        tk.Label(log_card, text="📝 Training Logs", 
+                font=('Arial', 14, 'bold'), bg='#f8f9fa').pack(pady=15, padx=20, anchor='w')
         
         # Create scrolled text widget for logs
-        self.log_text = scrolledtext.ScrolledText(log_frame, height=20, 
-                                                 bg='#000000', fg='#00ff00')
-        self.log_text.pack(fill='both', expand=True)
+        self.log_text = scrolledtext.ScrolledText(log_card, height=20, 
+                                                 bg='#2c3e50', fg='#ecf0f1',
+                                                 font=('Courier', 9))
+        self.log_text.pack(fill='both', expand=True, padx=20, pady=(0, 20))
     
     def create_detection_section(self):
-        """Create the detection section (Tab 2) - FIXED IMAGE DISPLAY"""
+        """Create the detection section with enhanced GUI and model selection"""
         detection_frame = ttk.Frame(self.notebook)
-        self.notebook.add(detection_frame, text="🟦 DETECTION")
+        self.notebook.add(detection_frame, text="🔍 DETECTION")
         
-        # Title
-        title_label = tk.Label(detection_frame, text="PPE Detection", 
-                              font=('Arial', 16, 'bold'), bg='#f0f0f0')
-        title_label.pack(pady=(10, 20))
+        # Main container
+        main_container = tk.Frame(detection_frame, bg='#ecf0f1')
+        main_container.pack(fill='both', expand=True, padx=2, pady=2)
         
-        # Main content frame with scrollbars
-        main_container = tk.Frame(detection_frame, bg='#f0f0f0')
-        main_container.pack(fill='both', expand=True)
+        # Header
+        header_frame = tk.Frame(main_container, bg='#9b59b6', height=80)
+        header_frame.pack(fill='x')
+        header_frame.pack_propagate(False)
         
-        # Create a canvas with scrollbars
-        canvas = tk.Canvas(main_container, bg='#f0f0f0')
-        scrollbar_y = ttk.Scrollbar(main_container, orient='vertical', command=canvas.yview)
-        scrollbar_x = ttk.Scrollbar(detection_frame, orient='horizontal', command=canvas.xview)
+        tk.Label(header_frame, text="👁️ PPE Detection", 
+                font=('Arial', 20, 'bold'), bg='#9b59b6', fg='white').pack(pady=20)
         
-        scrollable_frame = tk.Frame(canvas, bg='#f0f0f0')
-        
-        scrollable_frame.bind(
-            "<Configure>",
-            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
-        )
-        
-        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
-        canvas.configure(yscrollcommand=scrollbar_y.set, xscrollcommand=scrollbar_x.set)
-        
-        # Pack everything
-        canvas.pack(side="left", fill="both", expand=True, padx=20)
-        scrollbar_y.pack(side="right", fill="y")
-        scrollbar_x.pack(side="bottom", fill="x")
-        
-        content_frame = tk.Frame(scrollable_frame, bg='#f0f0f0')
-        content_frame.pack(fill='both', expand=True)
+        # Content area
+        content_frame = tk.Frame(main_container, bg='white')
+        content_frame.pack(fill='both', expand=True, padx=20, pady=20)
         
         # Left panel - Controls
-        left_panel = tk.Frame(content_frame, bg='#ffffff', relief='solid', borderwidth=1)
-        left_panel.pack(side='left', fill='both', expand=False, padx=(0, 10), pady=10)
+        control_panel = tk.Frame(content_frame, bg='white', relief='flat')
+        control_panel.pack(side='left', fill='both', expand=False, padx=(0, 20))
         
-        tk.Label(left_panel, text="Detection Controls", font=('Arial', 12, 'bold'), 
-                bg='#ffffff').pack(pady=20)
+        # Model loading card
+        model_card = tk.Frame(control_panel, bg='#f8f9fa', relief='groove', borderwidth=2)
+        model_card.pack(fill='x', pady=(0, 15))
         
-        # Load model button
-        load_frame = tk.Frame(left_panel, bg='#ffffff')
+        tk.Label(model_card, text="🤖 Model Selection", 
+                font=('Arial', 14, 'bold'), bg='#f8f9fa').pack(pady=15, padx=20, anchor='w')
+        
+        # Model loading buttons
+        load_frame = tk.Frame(model_card, bg='#f8f9fa')
         load_frame.pack(fill='x', padx=20, pady=10)
         
-        self.load_model_btn = tk.Button(load_frame, text="Load Trained Model", 
-                                       command=self.load_model, 
-                                       bg='#2196F3', fg='white', width=20)
-        self.load_model_btn.pack()
+        # Button 1: Load default trained model
+        default_btn = tk.Button(load_frame, text="📁 Load Trained Model", 
+                               command=self.load_default_model, 
+                               bg='#3498db', fg='white', font=('Arial', 11),
+                               relief='raised', borderwidth=2, padx=20, pady=10,
+                               width=20)
+        default_btn.pack(pady=5)
         
-        self.model_status_label = tk.Label(load_frame, text="No model loaded", 
-                                          bg='#ffffff', fg='red')
-        self.model_status_label.pack(pady=5)
+        # Button 2: Select custom model
+        custom_btn = tk.Button(load_frame, text="📂 Select Custom Model", 
+                              command=self.select_custom_model, 
+                              bg='#3498db', fg='white', font=('Arial', 11),
+                              relief='raised', borderwidth=2, padx=20, pady=10,
+                              width=20)
+        custom_btn.pack(pady=5)
         
-        # Upload options
-        upload_frame = tk.Frame(left_panel, bg='#ffffff')
-        upload_frame.pack(fill='x', padx=20, pady=20)
+        # Model status display
+        status_frame = tk.Frame(model_card, bg='#e8f4f8', relief='solid', borderwidth=1)
+        status_frame.pack(fill='x', padx=20, pady=15)
         
-        tk.Label(upload_frame, text="Upload Images:", font=('Arial', 11), 
-                bg='#ffffff').pack(anchor='w', pady=(0, 10))
+        self.model_status_label = tk.Label(status_frame, text="⏳ No model loaded", 
+                                          bg='#e8f4f8', fg='#7f8c8d', 
+                                          font=('Arial', 11, 'bold'))
+        self.model_status_label.pack(pady=10, padx=10)
+        
+        self.model_details_label = tk.Label(status_frame, text="", 
+                                           bg='#e8f4f8', fg='#95a5a6',
+                                           font=('Arial', 9))
+        self.model_details_label.pack(pady=(0, 10), padx=10)
+        
+        # Image upload card
+        upload_card = tk.Frame(control_panel, bg='#f8f9fa', relief='groove', borderwidth=2)
+        upload_card.pack(fill='x', pady=15)
+        
+        tk.Label(upload_card, text="📤 Image Upload", 
+                font=('Arial', 14, 'bold'), bg='#f8f9fa').pack(pady=15, padx=20, anchor='w')
+        
+        upload_frame = tk.Frame(upload_card, bg='#f8f9fa')
+        upload_frame.pack(fill='x', padx=20, pady=10)
         
         # Single image upload
-        single_img_btn = tk.Button(upload_frame, text="Upload Single Image", 
-                                  command=self.upload_single_image, 
-                                  bg='#607D8B', fg='white', width=20)
-        single_img_btn.pack(pady=5)
+        single_btn = tk.Button(upload_frame, text="🖼️ Single Image", 
+                              command=self.upload_single_image, 
+                              bg='#2ecc71', fg='white', font=('Arial', 11),
+                              relief='raised', borderwidth=2, padx=20, pady=10,
+                              width=15)
+        single_btn.pack(pady=5)
         
         # Folder upload
-        folder_btn = tk.Button(upload_frame, text="Upload Image Folder", 
+        folder_btn = tk.Button(upload_frame, text="📁 Image Folder", 
                               command=self.upload_image_folder, 
-                              bg='#607D8B', fg='white', width=20)
+                              bg='#2ecc71', fg='white', font=('Arial', 11),
+                              relief='raised', borderwidth=2, padx=20, pady=10,
+                              width=15)
         folder_btn.pack(pady=5)
         
         # Image info display
-        self.image_info_label = tk.Label(upload_frame, text="", bg='#ffffff')
-        self.image_info_label.pack(pady=10)
+        self.image_info_label = tk.Label(upload_card, text="", bg='#f8f9fa',
+                                        font=('Arial', 10), fg='#2c3e50')
+        self.image_info_label.pack(pady=(0, 15))
         
         # Detection button
-        self.detect_btn = tk.Button(left_panel, text="Run Detection", 
+        self.detect_btn = tk.Button(control_panel, text="🚀 Run Detection", 
                                    command=self.run_detection, 
-                                   bg='#4CAF50', fg='white', width=20,
+                                   bg='#e74c3c', fg='white', font=('Arial', 14, 'bold'),
+                                   relief='raised', borderwidth=3, padx=30, pady=15,
                                    state='disabled')
         self.detect_btn.pack(pady=20)
         
-        # Save output option
+        # Save option
         self.save_var = tk.BooleanVar(value=True)
-        save_check = tk.Checkbutton(left_panel, text="Save detected output", 
-                                   variable=self.save_var, bg='#ffffff')
+        save_check = tk.Checkbutton(control_panel, text="💾 Save detected output", 
+                                   variable=self.save_var, bg='white',
+                                   font=('Arial', 10), selectcolor='#3498db')
         save_check.pack(pady=10)
         
-        # Right panel - Image preview with better layout
-        right_panel = tk.Frame(content_frame, bg='#ffffff', relief='solid', borderwidth=1)
-        right_panel.pack(side='right', fill='both', expand=True, pady=10)
+        # Right panel - Image preview
+        preview_panel = tk.Frame(content_frame, bg='white', relief='flat')
+        preview_panel.pack(side='right', fill='both', expand=True)
         
-        tk.Label(right_panel, text="Image Preview", font=('Arial', 12, 'bold'), 
-                bg='#ffffff').pack(pady=20)
+        # Image preview card
+        preview_card = tk.Frame(preview_panel, bg='#f8f9fa', relief='groove', borderwidth=2)
+        preview_card.pack(fill='both', expand=True)
         
-        # Create a frame to hold both image displays with scrollbars
-        images_container = tk.Frame(right_panel, bg='#ffffff')
-        images_container.pack(fill='both', expand=True, padx=20, pady=10)
+        tk.Label(preview_card, text="👁️‍🗨️ Image Preview", 
+                font=('Arial', 14, 'bold'), bg='#f8f9fa').pack(pady=15, padx=20, anchor='w')
         
-        # Original image display with label
-        orig_frame = tk.Frame(images_container, bg='#f0f0f0')
-        orig_frame.pack(side='left', fill='both', expand=True, padx=(0, 10))
+        # Image container with two columns
+        image_container = tk.Frame(preview_card, bg='#f8f9fa')
+        image_container.pack(fill='both', expand=True, padx=20, pady=10)
         
-        tk.Label(orig_frame, text="Original Image", font=('Arial', 11, 'bold'), 
-                bg='#f0f0f0').pack(pady=(0, 10))
+        # Original image section
+        orig_frame = tk.LabelFrame(image_container, text="Original Image", 
+                                  font=('Arial', 12, 'bold'),
+                                  bg='#2c3e50', fg='white', 
+                                  relief='solid', borderwidth=1)
+        orig_frame.pack(side='left', fill='both', expand=True, padx=(0, 10), pady=5)
         
-        # Create scrollable canvas for original image
-        orig_canvas_frame = tk.Frame(orig_frame, bg='white')
-        orig_canvas_frame.pack(fill='both', expand=True)
+        # Frame for original image with fixed size (640x640)
+        self.orig_image_frame = tk.Frame(orig_frame, bg='#34495e', width=640, height=640)
+        self.orig_image_frame.pack(fill='both', expand=True, padx=5, pady=5)
+        self.orig_image_frame.pack_propagate(False)
         
-        self.original_canvas = tk.Canvas(orig_canvas_frame, bg='white', 
-                                        width=500, height=400,
-                                        scrollregion=(0, 0, 500, 400))
-        orig_v_scrollbar = ttk.Scrollbar(orig_canvas_frame, orient='vertical', 
-                                        command=self.original_canvas.yview)
-        orig_h_scrollbar = ttk.Scrollbar(orig_frame, orient='horizontal',
-                                        command=self.original_canvas.xview)
+        # Canvas for original image (for better control)
+        self.original_canvas = tk.Canvas(self.orig_image_frame, bg='#34495e', highlightthickness=0,
+                                        width=630, height=630)
+        self.original_canvas.pack(fill='both', expand=True)
         
-        self.original_canvas.configure(yscrollcommand=orig_v_scrollbar.set,
-                                      xscrollcommand=orig_h_scrollbar.set)
+        # Detected image section
+        det_frame = tk.LabelFrame(image_container, text="Detected Image", 
+                                 font=('Arial', 12, 'bold'),
+                                 bg='#2c3e50', fg='white', 
+                                 relief='solid', borderwidth=1)
+        det_frame.pack(side='right', fill='both', expand=True, pady=5)
         
-        self.original_canvas.pack(side='left', fill='both', expand=True)
-        orig_v_scrollbar.pack(side='right', fill='y')
-        orig_h_scrollbar.pack(side='bottom', fill='x')
+        # Frame for detected image with fixed size (640x640)
+        self.det_image_frame = tk.Frame(det_frame, bg='#34495e', width=640, height=640)
+        self.det_image_frame.pack(fill='both', expand=True, padx=5, pady=5)
+        self.det_image_frame.pack_propagate(False)
         
-        # Detected image display with label
-        det_frame = tk.Frame(images_container, bg='#f0f0f0')
-        det_frame.pack(side='right', fill='both', expand=True)
+        # Canvas for detected image
+        self.detected_canvas = tk.Canvas(self.det_image_frame, bg='#34495e', highlightthickness=0,
+                                        width=630, height=630)
+        self.detected_canvas.pack(fill='both', expand=True)
         
-        tk.Label(det_frame, text="Detected Image", font=('Arial', 11, 'bold'), 
-                bg='#f0f0f0').pack(pady=(0, 10))
-        
-        # Create scrollable canvas for detected image
-        det_canvas_frame = tk.Frame(det_frame, bg='white')
-        det_canvas_frame.pack(fill='both', expand=True)
-        
-        self.detected_canvas = tk.Canvas(det_canvas_frame, bg='white',
-                                        width=500, height=400,
-                                        scrollregion=(0, 0, 500, 400))
-        det_v_scrollbar = ttk.Scrollbar(det_canvas_frame, orient='vertical',
-                                       command=self.detected_canvas.yview)
-        det_h_scrollbar = ttk.Scrollbar(det_frame, orient='horizontal',
-                                       command=self.detected_canvas.xview)
-        
-        self.detected_canvas.configure(yscrollcommand=det_v_scrollbar.set,
-                                      xscrollcommand=det_h_scrollbar.set)
-        
-        self.detected_canvas.pack(side='left', fill='both', expand=True)
-        det_v_scrollbar.pack(side='right', fill='y')
-        det_h_scrollbar.pack(side='bottom', fill='x')
-        
-        # Navigation buttons for multiple images
-        nav_frame = tk.Frame(right_panel, bg='#ffffff')
+        # Navigation buttons
+        nav_frame = tk.Frame(preview_card, bg='#f8f9fa')
         nav_frame.pack(pady=10)
         
-        self.prev_btn = tk.Button(nav_frame, text="← Previous",
+        self.prev_btn = tk.Button(nav_frame, text="◀ Previous",
                                  command=self.show_previous_image,
-                                 state='disabled')
+                                 bg='#3498db', fg='white', font=('Arial', 11, 'bold'),
+                                 relief='raised', borderwidth=2, state='disabled',
+                                 padx=15, pady=8)
         self.prev_btn.pack(side='left', padx=5)
         
-        self.next_btn = tk.Button(nav_frame, text="Next →",
+        self.next_btn = tk.Button(nav_frame, text="Next ▶",
                                  command=self.show_next_image,
-                                 state='disabled')
+                                 bg='#3498db', fg='white', font=('Arial', 11, 'bold'),
+                                 relief='raised', borderwidth=2, state='disabled',
+                                 padx=15, pady=8)
         self.next_btn.pack(side='left', padx=5)
         
         self.image_counter_label = tk.Label(nav_frame, text="Image 0/0",
-                                           bg='#ffffff')
-        self.image_counter_label.pack(side='left', padx=10)
+                                           bg='#f8f9fa', font=('Arial', 12, 'bold'),
+                                           fg='#2c3e50')
+        self.image_counter_label.pack(side='left', padx=20)
         
         # Current images
         self.current_original_image = None
@@ -366,111 +475,211 @@ dataset/
         self.image_paths = []
         self.current_image_index = 0
         self.detection_results_list = []
+        
+        # Add default placeholders (will be called after GUI loads)
     
-    def show_previous_image(self):
-        """Show previous image in the list"""
-        if self.image_paths and self.current_image_index > 0:
-            self.current_image_index -= 1
-            self.display_original_image(self.image_paths[self.current_image_index])
-            self.update_image_navigation()
-            
-            # Show detection results if available
-            if self.current_image_index < len(self.detection_results_list):
-                self.display_detected_image(
-                    self.image_paths[self.current_image_index],
-                    self.detection_results_list[self.current_image_index]
-                )
+    def initialize_canvas_placeholders(self):
+        """Initialize canvas placeholders after GUI is fully loaded"""
+        self.show_placeholder_images()
     
-    def show_next_image(self):
-        """Show next image in the list"""
-        if self.image_paths and self.current_image_index < len(self.image_paths) - 1:
-            self.current_image_index += 1
-            self.display_original_image(self.image_paths[self.current_image_index])
-            self.update_image_navigation()
-            
-            # Show detection results if available
-            if self.current_image_index < len(self.detection_results_list):
-                self.display_detected_image(
-                    self.image_paths[self.current_image_index],
-                    self.detection_results_list[self.current_image_index]
-                )
-    
-    def update_image_navigation(self):
-        """Update navigation buttons and counter"""
-        if len(self.image_paths) > 1:
-            self.prev_btn.config(state='normal' if self.current_image_index > 0 else 'disabled')
-            self.next_btn.config(state='normal' if self.current_image_index < len(self.image_paths) - 1 else 'disabled')
-            self.image_counter_label.config(
-                text=f"Image {self.current_image_index + 1}/{len(self.image_paths)}"
-            )
-        else:
-            self.prev_btn.config(state='disabled')
-            self.next_btn.config(state='disabled')
-            self.image_counter_label.config(text="")
+    def show_placeholder_images(self):
+        """Show placeholder text when no images are loaded"""
+        # Clear both canvases
+        self.original_canvas.delete("all")
+        self.detected_canvas.delete("all")
+        
+        # Get canvas dimensions
+        orig_width = 630
+        orig_height = 630
+        
+        det_width = 630
+        det_height = 630
+        
+        # Draw placeholder on original canvas
+        self.original_canvas.create_text(
+            orig_width // 2, orig_height // 2,
+            text="Upload an image to start\n(Click 'Single Image' or 'Image Folder')",
+            fill='#95a5a6', font=('Arial', 14),
+            justify='center'
+        )
+        
+        # Draw placeholder on detected canvas
+        self.detected_canvas.create_text(
+            det_width // 2, det_height // 2,
+            text="Detection results will appear here\n(After uploading, click 'Run Detection')",
+            fill='#95a5a6', font=('Arial', 14),
+            justify='center'
+        )
     
     def create_results_section(self):
-        """Create the results and analysis section (Tab 3)"""
+        """Create the enhanced results and analysis section"""
         results_frame = ttk.Frame(self.notebook)
-        self.notebook.add(results_frame, text="🟦 RESULTS & ANALYSIS")
+        self.notebook.add(results_frame, text="📊 RESULTS")
         
-        # Title
-        title_label = tk.Label(results_frame, text="Detection Results & Analysis", 
-                              font=('Arial', 16, 'bold'), bg='#f0f0f0')
-        title_label.pack(pady=(10, 20))
+        # Main container
+        main_container = tk.Frame(results_frame, bg='#ecf0f1')
+        main_container.pack(fill='both', expand=True, padx=2, pady=2)
         
-        # Main content frame
-        content_frame = tk.Frame(results_frame, bg='#f0f0f0')
-        content_frame.pack(fill='both', expand=True, padx=20)
+        # Header
+        header_frame = tk.Frame(main_container, bg='#e67e22', height=80)
+        header_frame.pack(fill='x')
+        header_frame.pack_propagate(False)
         
-        # Left panel - Detailed results
-        left_panel = tk.Frame(content_frame, bg='#ffffff', relief='solid', borderwidth=1)
-        left_panel.pack(side='left', fill='both', expand=True, padx=(0, 10), pady=10)
+        tk.Label(header_frame, text="📈 Detection Results & Analysis", 
+                font=('Arial', 20, 'bold'), bg='#e67e22', fg='white').pack(pady=20)
         
-        tk.Label(left_panel, text="Detection Results", font=('Arial', 12, 'bold'), 
-                bg='#ffffff').pack(pady=20)
+        # Content area with two columns
+        content_frame = tk.Frame(main_container, bg='white')
+        content_frame.pack(fill='both', expand=True, padx=20, pady=20)
         
-        # Results text box
-        results_text_frame = tk.Frame(left_panel, bg='#ffffff')
-        results_text_frame.pack(fill='both', expand=True, padx=20, pady=10)
+        # Left column - Text results
+        left_column = tk.Frame(content_frame, bg='white')
+        left_column.pack(side='left', fill='both', expand=True, padx=(0, 10))
         
-        self.results_text = scrolledtext.ScrolledText(results_text_frame, height=20,
-                                                     bg='#f8f9fa')
-        self.results_text.pack(fill='both', expand=True)
+        # Results summary card
+        summary_card = tk.Frame(left_column, bg='#f8f9fa', relief='groove', borderwidth=2)
+        summary_card.pack(fill='both', expand=True, pady=(0, 15))
         
-        # Safety compliance calculation
-        safety_frame = tk.Frame(left_panel, bg='#ffffff')
-        safety_frame.pack(fill='x', padx=20, pady=20)
+        tk.Label(summary_card, text="📋 Detection Summary", 
+                font=('Arial', 14, 'bold'), bg='#f8f9fa').pack(pady=15, padx=20, anchor='w')
         
-        self.safety_label = tk.Label(safety_frame, text="Safety Compliance: Not Calculated", 
-                                    font=('Arial', 12, 'bold'), bg='#ffffff')
-        self.safety_label.pack()
+        # Two-column summary
+        summary_container = tk.Frame(summary_card, bg='#f8f9fa')
+        summary_container.pack(fill='both', expand=True, padx=20, pady=10)
         
-        # Explanation text
-        explanation_frame = tk.Frame(left_panel, bg='#ffffff')
-        explanation_frame.pack(fill='x', padx=20, pady=10)
+        # Detected items
+        detected_frame = tk.Frame(summary_container, bg='#e8f6f3', relief='solid', borderwidth=1)
+        detected_frame.grid(row=0, column=0, sticky='nsew', padx=(0, 5), pady=5)
         
-        self.explanation_text = tk.Text(explanation_frame, height=6, bg='#f8f9fa')
-        self.explanation_text.pack(fill='x')
+        tk.Label(detected_frame, text="✅ DETECTED PPE ITEMS", font=('Arial', 12, 'bold'), 
+                bg='#27ae60', fg='white').pack(fill='x', pady=5)
         
-        # Right panel - Visualization
-        right_panel = tk.Frame(content_frame, bg='#ffffff', relief='solid', borderwidth=1)
-        right_panel.pack(side='right', fill='both', expand=True, pady=10)
+        self.detected_listbox = tk.Listbox(detected_frame, height=8, bg='#e8f6f3',
+                                          font=('Arial', 10), selectmode=tk.SINGLE,
+                                          relief='flat')
+        detected_scrollbar = tk.Scrollbar(detected_frame)
+        detected_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self.detected_listbox.config(yscrollcommand=detected_scrollbar.set)
+        detected_scrollbar.config(command=self.detected_listbox.yview)
+        self.detected_listbox.pack(fill='both', expand=True, padx=5, pady=5)
         
-        tk.Label(right_panel, text="Visualization", font=('Arial', 12, 'bold'), 
-                bg='#ffffff').pack(pady=20)
+        # Missing items
+        missing_frame = tk.Frame(summary_container, bg='#fdebd0', relief='solid', borderwidth=1)
+        missing_frame.grid(row=0, column=1, sticky='nsew', padx=(5, 0), pady=5)
         
-        # Chart display area
-        chart_frame = tk.Frame(right_panel, bg='#f0f0f0')
-        chart_frame.pack(fill='both', expand=True, padx=20, pady=20)
+        tk.Label(missing_frame, text="⚠ MISSING PPE ITEMS", font=('Arial', 12, 'bold'), 
+                bg='#e67e22', fg='white').pack(fill='x', pady=5)
         
-        self.chart_canvas = tk.Canvas(chart_frame, bg='white')
-        self.chart_canvas.pack(fill='both', expand=True)
+        self.missing_listbox = tk.Listbox(missing_frame, height=8, bg='#fdebd0',
+                                         font=('Arial', 10), selectmode=tk.SINGLE,
+                                         relief='flat')
+        missing_scrollbar = tk.Scrollbar(missing_frame)
+        missing_scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self.missing_listbox.config(yscrollcommand=missing_scrollbar.set)
+        missing_scrollbar.config(command=self.missing_listbox.yview)
+        self.missing_listbox.pack(fill='both', expand=True, padx=5, pady=5)
         
-        # Default message in chart area
-        self.chart_canvas.create_text(250, 150, 
-                                     text="Detection results will appear here", 
-                                     fill='gray', font=('Arial', 12))
-    
+        # Configure grid weights
+        summary_container.columnconfigure(0, weight=1)
+        summary_container.columnconfigure(1, weight=1)
+        summary_container.rowconfigure(0, weight=1)
+        
+        # Summary stats
+        self.summary_stats_label = tk.Label(summary_card, text="📊 No detection results yet", 
+                                           bg='#f8f9fa', font=('Arial', 11, 'bold'),
+                                           fg='#2c3e50')
+        self.summary_stats_label.pack(pady=10)
+        
+        # Safety analysis card
+        safety_card = tk.Frame(left_column, bg='#f8f9fa', relief='groove', borderwidth=2)
+        safety_card.pack(fill='both', expand=True)
+        
+        tk.Label(safety_card, text="🛡️ Safety Compliance Analysis", 
+                font=('Arial', 14, 'bold'), bg='#f8f9fa').pack(pady=15, padx=20, anchor='w')
+        
+        # Safety percentage display
+        safety_display = tk.Frame(safety_card, bg='#2c3e50', relief='solid', borderwidth=1)
+        safety_display.pack(fill='x', padx=20, pady=10)
+        
+        self.safety_percentage_label = tk.Label(safety_display, 
+                                               text="0.0%",
+                                               font=('Arial', 36, 'bold'),
+                                               bg='#2c3e50', fg='#ecf0f1')
+        self.safety_percentage_label.pack(pady=10)
+        
+        self.safety_status_label = tk.Label(safety_display,
+                                          text="NOT CALCULATED",
+                                          font=('Arial', 16, 'bold'),
+                                          bg='#2c3e50', fg='#bdc3c7')
+        self.safety_status_label.pack(pady=(0, 10))
+        
+        # Safety breakdown
+        breakdown_frame = tk.Frame(safety_card, bg='#f8f9fa')
+        breakdown_frame.pack(fill='x', padx=20, pady=10)
+        
+        self.safety_breakdown_label = tk.Label(breakdown_frame, text="",
+                                              bg='#f8f9fa', font=('Arial', 10),
+                                              justify='left')
+        self.safety_breakdown_label.pack()
+        
+        # Right column - Visualizations
+        right_column = tk.Frame(content_frame, bg='white')
+        right_column.pack(side='right', fill='both', expand=True)
+        
+        # Charts card
+        charts_card = tk.Frame(right_column, bg='#f8f9fa', relief='groove', borderwidth=2)
+        charts_card.pack(fill='both', expand=True)
+        
+        tk.Label(charts_card, text="📊 Visual Analytics", 
+                font=('Arial', 14, 'bold'), bg='#f8f9fa').pack(pady=15, padx=20, anchor='w')
+        
+        # Chart container
+        chart_container = tk.Frame(charts_card, bg='#f8f9fa')
+        chart_container.pack(fill='both', expand=True, padx=20, pady=10)
+        
+        # Bar chart frame
+        bar_chart_frame = tk.Frame(chart_container, bg='white', relief='solid', borderwidth=1)
+        bar_chart_frame.pack(fill='both', expand=True, pady=(0, 10))
+        
+        tk.Label(bar_chart_frame, text="📈 Detection Count by Class", 
+                font=('Arial', 12, 'bold'), bg='white').pack(pady=10)
+        
+        self.bar_chart_canvas = tk.Canvas(bar_chart_frame, bg='white', height=200)
+        self.bar_chart_canvas.pack(fill='both', expand=True, padx=10, pady=(0, 10))
+        
+        # Default message
+        self.bar_chart_canvas.create_text(250, 100, 
+                                         text="Detection chart will appear here", 
+                                         fill='#95a5a6', font=('Arial', 12))
+        
+        # Pie chart frame
+        pie_chart_frame = tk.Frame(chart_container, bg='white', relief='solid', borderwidth=1)
+        pie_chart_frame.pack(fill='both', expand=True)
+        
+        tk.Label(pie_chart_frame, text="🥧 Safety Distribution", 
+                font=('Arial', 12, 'bold'), bg='white').pack(pady=10)
+        
+        self.pie_chart_canvas = tk.Canvas(pie_chart_frame, bg='white', height=200)
+        self.pie_chart_canvas.pack(fill='both', expand=True, padx=10, pady=(0, 10))
+        
+        # Default message
+        self.pie_chart_canvas.create_text(250, 100, 
+                                         text="Safety distribution will appear here", 
+                                         fill='#95a5a6', font=('Arial', 12))
+        
+        # Detailed logs card (below charts)
+        logs_card = tk.Frame(right_column, bg='#f8f9fa', relief='groove', borderwidth=2)
+        logs_card.pack(fill='both', expand=True, pady=15)
+        
+        tk.Label(logs_card, text="📝 Detailed Analysis", 
+                font=('Arial', 14, 'bold'), bg='#f8f9fa').pack(pady=15, padx=20, anchor='w')
+        
+        # Create scrolled text widget for logs
+        self.results_text = scrolledtext.ScrolledText(logs_card, height=8,
+                                                     bg='#2c3e50', fg='#ecf0f1',
+                                                     font=('Arial', 10))
+        self.results_text.pack(fill='both', expand=True, padx=20, pady=(0, 20))
+
     # ============================================================================
     # DATASET AND TRAINING FUNCTIONS
     # ============================================================================
@@ -488,7 +697,7 @@ dataset/
         dataset_path = self.dataset_entry.get()
         
         if not dataset_path:
-            self.validation_label.config(text="Please select a dataset folder", fg='red')
+            self.validation_label.config(text="⚠ Please select a dataset folder", fg='#e67e22')
             return False
         
         # Check required folders
@@ -525,51 +734,61 @@ dataset/
                     class_count = len(self.class_names)
                     validation_msg = f"✓ Dataset valid! Found {class_count} classes"
                     
-                    # Initialize PPE requirements based on class names
+                    # Initialize PPE requirements
                     self.initialize_ppe_requirements()
                 else:
                     validation_msg = "⚠ data.yaml missing 'names' key"
                     all_valid = False
                 
-                self.validation_label.config(text=validation_msg, fg='green')
+                self.validation_label.config(text=validation_msg, fg='#27ae60')
                 
             except Exception as e:
-                self.validation_label.config(text=f"Error reading data.yaml: {str(e)}", fg='red')
+                self.validation_label.config(text=f"✗ Error reading data.yaml: {str(e)}", fg='#e74c3c')
                 all_valid = False
         else:
             missing_text = ", ".join(missing_items)
-            self.validation_label.config(text=f"Missing: {missing_text}", fg='red')
+            self.validation_label.config(text=f"✗ Missing: {missing_text}", fg='#e74c3c')
         
         return all_valid
     
     def initialize_ppe_requirements(self):
         """Initialize PPE requirements for each class based on typical safety standards"""
-        # Define typical PPE requirements
-        # Minimum instances needed for safety compliance
         self.ppe_requirements = {}
+        
+        # Define critical PPE items and their requirements
+        critical_ppe = {
+            'helmet': {'min_instances': 1, 'critical': True, 'weight': 2.0},
+            'hardhat': {'min_instances': 1, 'critical': True, 'weight': 2.0},
+            'vest': {'min_instances': 1, 'critical': True, 'weight': 1.8},
+            'high-vis': {'min_instances': 1, 'critical': True, 'weight': 1.8},
+            'glove': {'min_instances': 2, 'critical': True, 'weight': 1.5},
+            'hand': {'min_instances': 2, 'critical': True, 'weight': 1.5},
+            'boot': {'min_instances': 2, 'critical': True, 'weight': 1.5},
+            'shoe': {'min_instances': 2, 'critical': True, 'weight': 1.5},
+            'goggle': {'min_instances': 1, 'critical': True, 'weight': 1.7},
+            'glass': {'min_instances': 1, 'critical': True, 'weight': 1.7},
+            'mask': {'min_instances': 1, 'critical': True, 'weight': 1.9},
+            'respirator': {'min_instances': 1, 'critical': True, 'weight': 1.9},
+            'ear': {'min_instances': 2, 'critical': False, 'weight': 1.3},
+            'hearing': {'min_instances': 2, 'critical': False, 'weight': 1.3}
+        }
         
         for i, class_name in enumerate(self.class_names):
             class_name_lower = class_name.lower()
+            matched = False
             
-            # Set minimum required instances for each PPE item
-            if 'glove' in class_name_lower or 'hand' in class_name_lower:
-                self.ppe_requirements[i] = {'min_instances': 2, 'critical': True, 'weight': 1.5}
-            elif 'boot' in class_name_lower or 'shoe' in class_name_lower or 'foot' in class_name_lower:
-                self.ppe_requirements[i] = {'min_instances': 2, 'critical': True, 'weight': 1.5}
-            elif 'helmet' in class_name_lower or 'hardhat' in class_name_lower:
-                self.ppe_requirements[i] = {'min_instances': 1, 'critical': True, 'weight': 2.0}
-            elif 'vest' in class_name_lower or 'high-vis' in class_name_lower:
-                self.ppe_requirements[i] = {'min_instances': 1, 'critical': True, 'weight': 1.8}
-            elif 'goggle' in class_name_lower or 'glass' in class_name_lower:
-                self.ppe_requirements[i] = {'min_instances': 1, 'critical': True, 'weight': 1.7}
-            elif 'mask' in class_name_lower or 'respirator' in class_name_lower:
-                self.ppe_requirements[i] = {'min_instances': 1, 'critical': True, 'weight': 1.9}
-            elif 'ear' in class_name_lower or 'hearing' in class_name_lower:
-                self.ppe_requirements[i] = {'min_instances': 2, 'critical': False, 'weight': 1.3}
-            else:
+            # Check for critical PPE items
+            for key, requirements in critical_ppe.items():
+                if key in class_name_lower:
+                    self.ppe_requirements[i] = requirements.copy()
+                    matched = True
+                    break
+            
+            # Default for non-critical items
+            if not matched:
                 self.ppe_requirements[i] = {'min_instances': 1, 'critical': False, 'weight': 1.0}
     
-    def update_status(self, status, color='gray'):
+    def update_status(self, status, color='#95a5a6'):
         """Update the training status indicator"""
         status_text = f"Status: {status}"
         self.status_label.config(text=status_text)
@@ -622,9 +841,11 @@ dataset/
     def run_training(self, epochs, img_size):
         """Run YOLOv8 training (to be called in a thread)"""
         try:
-            self.update_status("Training...", color='orange')
+            self.update_status("Training...", color='#f39c12')
+            self.log_message("=" * 60)
             self.log_message("Starting YOLOv8 training...")
             self.log_message(f"Parameters: Epochs={epochs}, Image Size={img_size}")
+            self.log_message("=" * 60)
             
             self.log_message("Initializing YOLOv8 model...")
             model = YOLO("yolov8n.yaml")
@@ -638,6 +859,7 @@ dataset/
             yaml_path = os.path.join(self.dataset_path, 'data.yaml')
             
             self.log_message("Training started. This may take several minutes...")
+            self.log_message("-" * 60)
             
             results = model.train(
                 data=yaml_path,
@@ -653,41 +875,41 @@ dataset/
             
             model.save(self.trained_model_path)
             
-            self.log_message(f"Training completed successfully!")
-            self.log_message(f"Model saved as: {self.trained_model_path}")
-            self.update_status("Completed", color='green')
+            self.log_message("=" * 60)
+            self.log_message("✓ Training completed successfully!")
+            self.log_message(f"✓ Model saved as: {self.trained_model_path}")
+            self.log_message("=" * 60)
+            self.update_status("Completed", color='#27ae60')
             
             if os.path.exists(self.trained_model_path):
-                self.load_model_btn.config(state='normal')
                 self.log_message("Model is ready for detection.")
             
         except Exception as e:
             error_msg = f"Training error: {str(e)}"
-            self.log_message(error_msg)
-            self.update_status("Error", color='red')
+            self.log_message("✗ " + error_msg)
+            self.update_status("Error", color='#e74c3c')
             messagebox.showerror("Training Error", error_msg)
     
     def stop_training(self):
         """Stop the training process"""
         if self.is_training:
-            self.update_status("Stopping...", color='orange')
+            self.update_status("Stopping...", color='#e67e22')
             self.log_message("Training stopped by user")
-            self.update_status("Idle", color='gray')
+            self.update_status("Idle", color='#95a5a6')
     
     # ============================================================================
-    # DETECTION FUNCTIONS (WITH IMPROVED IMAGE DISPLAY)
+    # MODEL LOADING FUNCTIONS
     # ============================================================================
     
-    def load_model(self):
-        """Load the trained model for inference"""
+    def load_default_model(self):
+        """Load the trained model from default location"""
         try:
             if not os.path.exists(self.trained_model_path):
                 messagebox.showerror("Error", "No trained model found. Please train a model first.")
                 return
             
-            self.log_message("Loading trained model for detection...")
-            
             self.model = YOLO(self.trained_model_path)
+            self.current_model_path = self.trained_model_path
             
             if hasattr(self.model, 'names') and self.model.names:
                 self.class_names = list(self.model.names.values())
@@ -698,34 +920,83 @@ dataset/
                         data_yaml = yaml.safe_load(f)
                     self.class_names = data_yaml.get('names', [])
             
-            # Initialize PPE requirements
             self.initialize_ppe_requirements()
             
             self.model_status_label.config(
-                text=f"Model loaded: {len(self.class_names)} classes", 
-                fg='green'
+                text=f"✓ Model loaded: {len(self.class_names)} classes", 
+                fg='#27ae60'
             )
+            self.model_details_label.config(text=f"Path: {self.trained_model_path}")
             self.detect_btn.config(state='normal')
             
-            messagebox.showinfo("Success", "Model loaded successfully!")
+            self.log_message(f"Default model loaded: {len(self.class_names)} classes")
             
         except Exception as e:
             error_msg = f"Error loading model: {str(e)}"
-            self.model_status_label.config(text=error_msg, fg='red')
+            self.model_status_label.config(text=f"✗ {error_msg}", fg='#e74c3c')
             messagebox.showerror("Error", error_msg)
+    
+    def select_custom_model(self):
+        """Allow user to select a custom model file"""
+        file_path = filedialog.askopenfilename(
+            title="Select Model File",
+            filetypes=[("PyTorch Model", "*.pt"), ("All Files", "*.*")]
+        )
+        if file_path:
+            self.load_custom_model(file_path)
+    
+    def load_custom_model(self, model_path):
+        """Load a custom model from specified path"""
+        try:
+            if not os.path.exists(model_path):
+                messagebox.showerror("Error", f"Model file not found: {model_path}")
+                return
+            
+            self.model = YOLO(model_path)
+            self.current_model_path = model_path
+            
+            if hasattr(self.model, 'names') and self.model.names:
+                self.class_names = list(self.model.names.values())
+            else:
+                self.class_names = [f"Class{i}" for i in range(100)]
+            
+            self.initialize_ppe_requirements()
+            
+            # Truncate path for display
+            display_path = model_path
+            if len(display_path) > 40:
+                display_path = "..." + display_path[-40:]
+            
+            self.model_status_label.config(
+                text=f"✓ Custom model loaded: {len(self.class_names)} classes", 
+                fg='#27ae60'
+            )
+            self.model_details_label.config(text=f"Path: {display_path}")
+            self.detect_btn.config(state='normal')
+            
+            self.log_message(f"Custom model loaded: {model_path}")
+            
+        except Exception as e:
+            error_msg = f"Error loading model: {str(e)}"
+            self.model_status_label.config(text=f"✗ {error_msg}", fg='#e74c3c')
+            messagebox.showerror("Error", error_msg)
+    
+    # ============================================================================
+    # DETECTION FUNCTIONS - FIXED IMAGE DISPLAY
+    # ============================================================================
     
     def upload_single_image(self):
         """Upload a single image for detection"""
         file_path = filedialog.askopenfilename(
             title="Select an image",
-            filetypes=[("Image files", "*.jpg *.jpeg *.png *.bmp *.tiff")]
+            filetypes=[("Image files", "*.jpg *.jpeg *.png *.bmp *.tiff *.gif")]
         )
         
         if file_path:
             self.image_paths = [file_path]
             self.current_image_index = 0
             self.display_original_image(file_path)
-            self.image_info_label.config(text=f"Loaded: {os.path.basename(file_path)}")
+            self.image_info_label.config(text=f"📁 Loaded: {os.path.basename(file_path)}")
             self.update_image_navigation()
     
     def upload_image_folder(self):
@@ -733,7 +1004,7 @@ dataset/
         folder_path = filedialog.askdirectory(title="Select Image Folder")
         
         if folder_path:
-            valid_extensions = {'.jpg', '.jpeg', '.png', '.bmp', '.tiff'}
+            valid_extensions = {'.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.gif'}
             self.image_paths = [
                 os.path.join(folder_path, f) 
                 for f in os.listdir(folder_path)
@@ -744,160 +1015,212 @@ dataset/
                 self.current_image_index = 0
                 self.display_original_image(self.image_paths[0])
                 self.image_info_label.config(
-                    text=f"Loaded {len(self.image_paths)} images from folder"
+                    text=f"📂 Loaded {len(self.image_paths)} images"
                 )
                 self.update_image_navigation()
             else:
                 messagebox.showwarning("Warning", "No valid images found in folder")
     
     def display_original_image(self, image_path):
-        """Display the original image in the preview panel - FIXED"""
+        """Display the original image in the preview panel (640x640)"""
         try:
+            # Clear canvas
+            self.original_canvas.delete("all")
+            
             # Load image
-            image = Image.open(image_path)
+            img = Image.open(image_path)
+            self.original_image_pil = img.copy()
             
-            # Get canvas dimensions
-            canvas_width = self.original_canvas.winfo_width() or 500
-            canvas_height = self.original_canvas.winfo_height() or 400
+            # Calculate dimensions to fit 640x640 while maintaining aspect ratio
+            img_width, img_height = img.size
+            canvas_width, canvas_height = 630, 630
             
-            # Calculate scaling factor to fit image in canvas
-            img_width, img_height = image.size
+            # Calculate scaling factor
             scale = min(canvas_width / img_width, canvas_height / img_height)
             
-            if scale < 1:  # Only scale down, not up
-                new_width = int(img_width * scale)
-                new_height = int(img_height * scale)
-                image = image.resize((new_width, new_height), Image.Resampling.LANCZOS)
+            # Calculate new dimensions
+            new_width = int(img_width * scale)
+            new_height = int(img_height * scale)
             
-            # Update canvas scroll region
-            self.original_canvas.config(scrollregion=(0, 0, image.width, image.height))
+            # Resize image
+            img_resized = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+            
+            # Create new image with black background
+            new_img = Image.new('RGB', (canvas_width, canvas_height), color='#34495e')
+            
+            # Calculate position to center the image
+            x_offset = (canvas_width - new_width) // 2
+            y_offset = (canvas_height - new_height) // 2
+            
+            # Paste the resized image onto the center of the black background
+            new_img.paste(img_resized, (x_offset, y_offset))
             
             # Convert to PhotoImage
-            self.current_original_image = ImageTk.PhotoImage(image)
+            self.current_original_photo = ImageTk.PhotoImage(new_img)
             
-            # Display on canvas
-            self.original_canvas.delete("all")
+            # Display image on canvas
             self.original_canvas.create_image(
-                0, 0,
-                image=self.current_original_image,
-                anchor='nw'
+                canvas_width // 2,
+                canvas_height // 2,
+                image=self.current_original_photo,
+                anchor='center'
             )
+            
+            # Store reference
+            self.original_canvas.image = self.current_original_photo
+            
+            # Enable detect button if model is loaded
+            if self.model:
+                self.detect_btn.config(state='normal')
             
         except Exception as e:
             messagebox.showerror("Error", f"Cannot load image: {str(e)}")
+            self.show_placeholder_images()
     
     def display_detected_image(self, image_path, results):
-        """Display the detected image with bounding boxes - FIXED"""
+        """Display the detected image with bounding boxes (640x640)"""
         try:
-            # Load image with OpenCV
-            image = cv2.imread(image_path)
-            if image is None:
-                raise ValueError(f"Cannot read image: {image_path}")
-                
-            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-            original_height, original_width = image.shape[:2]
+            # Clear canvas
+            self.detected_canvas.delete("all")
             
-            # Draw bounding boxes from results
-            if hasattr(results[0], 'boxes'):
+            # Load image with OpenCV
+            img_cv = cv2.imread(image_path)
+            if img_cv is None:
+                raise ValueError(f"Cannot read image: {image_path}")
+            
+            # Convert BGR to RGB
+            img_rgb = cv2.cvtColor(img_cv, cv2.COLOR_BGR2RGB)
+            
+            # Draw bounding boxes if results exist
+            if hasattr(results[0], 'boxes') and results[0].boxes is not None:
                 boxes = results[0].boxes
                 
                 for box in boxes:
                     # Get box coordinates
-                    x1, y1, x2, y2 = box.xyxy[0].tolist()
+                    x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
                     conf = box.conf[0].item()
                     cls = int(box.cls[0].item())
                     
-                    # Get class name and color
-                    class_name = self.class_names[cls] if cls < len(self.class_names) else f"Class{cls}"
+                    # Get class name
+                    if cls < len(self.class_names):
+                        class_name = self.class_names[cls]
+                    else:
+                        class_name = f"Class_{cls}"
+                    
+                    # Get color for this class
                     color = self.get_class_color(cls)
                     
-                    # Scale coordinates back to original image size if needed
-                    scale_x = original_width / 640  # Assuming model input size is 640
-                    scale_y = original_height / 640
-                    
-                    x1, x2 = x1 * scale_x, x2 * scale_x
-                    y1, y2 = y1 * scale_y, y2 * scale_y
-                    
                     # Draw rectangle
-                    cv2.rectangle(image, (int(x1), int(y1)), (int(x2), int(y2)), color, 3)
+                    cv2.rectangle(img_rgb, 
+                                (int(x1), int(y1)), 
+                                (int(x2), int(y2)), 
+                                color, 
+                                3)
                     
                     # Create label
-                    label = f"{class_name}: {conf:.2f}"
+                    label = f"{class_name} {conf:.2f}"
                     
                     # Get text size
-                    font_scale = max(0.5, min(1.0, original_width / 1000))
-                    thickness = max(1, int(original_width / 500))
+                    font = cv2.FONT_HERSHEY_SIMPLEX
+                    font_scale = 0.8
+                    thickness = 2
                     
                     (text_width, text_height), baseline = cv2.getTextSize(
-                        label, cv2.FONT_HERSHEY_SIMPLEX, font_scale, thickness
+                        label, font, font_scale, thickness
                     )
                     
                     # Draw label background
-                    cv2.rectangle(
-                        image,
-                        (int(x1), int(y1) - text_height - 10),
-                        (int(x1) + text_width, int(y1)),
-                        color,
-                        -1
-                    )
+                    cv2.rectangle(img_rgb,
+                                (int(x1), int(y1) - text_height - 10),
+                                (int(x1) + text_width, int(y1)),
+                                color,
+                                -1)
                     
                     # Draw label text
-                    cv2.putText(
-                        image,
-                        label,
-                        (int(x1), int(y1) - 5),
-                        cv2.FONT_HERSHEY_SIMPLEX,
-                        font_scale,
-                        (255, 255, 255),
-                        thickness
-                    )
+                    cv2.putText(img_rgb,
+                              label,
+                              (int(x1), int(y1) - 5),
+                              font,
+                              font_scale,
+                              (255, 255, 255),
+                              thickness)
             
             # Convert to PIL Image
-            detected_image = Image.fromarray(image)
+            img_pil = Image.fromarray(img_rgb)
+            self.detected_image_pil = img_pil.copy()
             
-            # Get canvas dimensions
-            canvas_width = self.detected_canvas.winfo_width() or 500
-            canvas_height = self.detected_canvas.winfo_height() or 400
+            # Calculate dimensions to fit 640x640 while maintaining aspect ratio
+            img_width, img_height = img_pil.size
+            canvas_width, canvas_height = 630, 630
             
             # Calculate scaling factor
-            img_width, img_height = detected_image.size
             scale = min(canvas_width / img_width, canvas_height / img_height)
             
-            if scale < 1:  # Only scale down, not up
-                new_width = int(img_width * scale)
-                new_height = int(img_height * scale)
-                detected_image = detected_image.resize((new_width, new_height), Image.Resampling.LANCZOS)
+            # Calculate new dimensions
+            new_width = int(img_width * scale)
+            new_height = int(img_height * scale)
             
-            # Update canvas scroll region
-            self.detected_canvas.config(scrollregion=(0, 0, detected_image.width, detected_image.height))
+            # Resize image
+            img_resized = img_pil.resize((new_width, new_height), Image.Resampling.LANCZOS)
+            
+            # Create new image with black background
+            new_img = Image.new('RGB', (canvas_width, canvas_height), color='#34495e')
+            
+            # Calculate position to center the image
+            x_offset = (canvas_width - new_width) // 2
+            y_offset = (canvas_height - new_height) // 2
+            
+            # Paste the resized image onto the center of the black background
+            new_img.paste(img_resized, (x_offset, y_offset))
             
             # Convert to PhotoImage
-            self.current_detected_image = ImageTk.PhotoImage(detected_image)
+            self.current_detected_photo = ImageTk.PhotoImage(new_img)
             
-            # Display on canvas
-            self.detected_canvas.delete("all")
+            # Display image on canvas
             self.detected_canvas.create_image(
-                0, 0,
-                image=self.current_detected_image,
-                anchor='nw'
+                canvas_width // 2,
+                canvas_height // 2,
+                image=self.current_detected_photo,
+                anchor='center'
             )
+            
+            # Store reference
+            self.detected_canvas.image = self.current_detected_photo
             
         except Exception as e:
             messagebox.showerror("Error", f"Cannot display detected image: {str(e)}")
-    
+            self.show_detected_placeholder()
+
+    def show_detected_placeholder(self):
+        """Show placeholder for detected image"""
+        self.detected_canvas.delete("all")
+        
+        # Get canvas dimensions
+        canvas_width, canvas_height = 630, 630
+        
+        # Draw placeholder
+        self.detected_canvas.create_text(
+            canvas_width // 2,
+            canvas_height // 2,
+            text="Run detection to see results",
+            fill='#95a5a6',
+            font=('Arial', 14),
+            justify='center'
+        )
+
     def get_class_color(self, class_id):
         """Get a unique color for each class"""
         colors = [
-            (255, 0, 0),    # Red - Critical items
-            (0, 255, 0),    # Green - Non-critical items
-            (0, 0, 255),    # Blue
-            (255, 255, 0),  # Yellow
-            (255, 0, 255),  # Magenta
-            (0, 255, 255),  # Cyan
-            (128, 0, 0),    # Maroon
-            (0, 128, 0),    # Dark Green
-            (0, 0, 128),    # Navy
-            (128, 128, 0)   # Olive
+            (255, 0, 0),      # Red
+            (0, 255, 0),      # Green
+            (0, 0, 255),      # Blue
+            (255, 255, 0),    # Yellow
+            (255, 0, 255),    # Magenta
+            (0, 255, 255),    # Cyan
+            (255, 165, 0),    # Orange
+            (128, 0, 128),    # Purple
+            (0, 128, 128),    # Teal
+            (128, 128, 0)     # Olive
         ]
         return colors[class_id % len(colors)]
     
@@ -914,40 +1237,119 @@ dataset/
         try:
             # Clear previous results
             self.detection_results = []
-            self.detection_results_list = []
             
             # Run detection on all images
-            for i, image_path in enumerate(self.image_paths):
-                results = self.model(image_path, conf=0.25)  # Lower confidence threshold for better detection
-                self.detection_results_list.append(results)
-                
-                # Display first image results
-                if i == 0:
-                    self.display_detected_image(image_path, results)
-                    self.process_detection_results(results, image_path)
-                    
-                    if self.save_var.get():
-                        self.save_detection_output(results, image_path)
+            self.detection_results_list = []
+            
+            # Get current image path
+            current_image_path = self.image_paths[self.current_image_index]
+            
+            # Run detection with confidence threshold of 0.25 (default)
+            results = self.model(current_image_path, conf=0.25)
+            self.detection_results_list.append(results)
+            
+            # Display detection results
+            self.display_detected_image(current_image_path, results)
+            self.process_detection_results(results, current_image_path)
             
             # Enable navigation for multiple images
             self.update_image_navigation()
             
+            # Save output if requested
+            if self.save_var.get():
+                self.save_detection_output(results, current_image_path)
+            
         except Exception as e:
             messagebox.showerror("Error", f"Detection failed: {str(e)}")
     
+    def show_previous_image(self):
+        """Show previous image in the list"""
+        if self.image_paths and self.current_image_index > 0:
+            self.current_image_index -= 1
+            self.display_original_image(self.image_paths[self.current_image_index])
+            self.update_image_navigation()
+            
+            # Show detection results if available
+            if self.current_image_index < len(self.detection_results_list):
+                results = self.detection_results_list[self.current_image_index]
+                self.display_detected_image(self.image_paths[self.current_image_index], results)
+                self.process_detection_results(results, self.image_paths[self.current_image_index])
+            else:
+                # Clear detection results if not available
+                self.show_detected_placeholder()
+                self.clear_results()
+    
+    def show_next_image(self):
+        """Show next image in the list"""
+        if self.image_paths and self.current_image_index < len(self.image_paths) - 1:
+            self.current_image_index += 1
+            self.display_original_image(self.image_paths[self.current_image_index])
+            self.update_image_navigation()
+            
+            # Show detection results if available
+            if self.current_image_index < len(self.detection_results_list):
+                results = self.detection_results_list[self.current_image_index]
+                self.display_detected_image(self.image_paths[self.current_image_index], results)
+                self.process_detection_results(results, self.image_paths[self.current_image_index])
+            else:
+                # Clear detection results if not available
+                self.show_detected_placeholder()
+                self.clear_results()
+    
+    def clear_results(self):
+        """Clear all results"""
+        self.results_text.delete(1.0, tk.END)
+        self.detected_listbox.delete(0, tk.END)
+        self.missing_listbox.delete(0, tk.END)
+        self.summary_stats_label.config(text="📊 No detection results yet")
+        self.safety_percentage_label.config(text="0.0%")
+        self.safety_status_label.config(text="NOT CALCULATED")
+        self.safety_breakdown_label.config(text="")
+        
+        # Clear charts
+        self.bar_chart_canvas.delete("all")
+        self.pie_chart_canvas.delete("all")
+        self.bar_chart_canvas.create_text(250, 100, 
+                                         text="Detection chart will appear here", 
+                                         fill='#95a5a6', font=('Arial', 12))
+        self.pie_chart_canvas.create_text(250, 100, 
+                                         text="Safety distribution will appear here", 
+                                         fill='#95a5a6', font=('Arial', 12))
+    
+    def update_image_navigation(self):
+        """Update navigation buttons and counter"""
+        if len(self.image_paths) > 1:
+            self.prev_btn.config(state='normal' if self.current_image_index > 0 else 'disabled')
+            self.next_btn.config(state='normal' if self.current_image_index < len(self.image_paths) - 1 else 'disabled')
+            self.image_counter_label.config(
+                text=f"📄 Image {self.current_image_index + 1}/{len(self.image_paths)}"
+            )
+        else:
+            self.prev_btn.config(state='disabled')
+            self.next_btn.config(state='disabled')
+            self.image_counter_label.config(text="")
+    
+    # ============================================================================
+    # RESULTS PROCESSING FUNCTIONS
+    # ============================================================================
+    
     def process_detection_results(self, results, image_path):
-        """Process and display detection results - IMPROVED CALCULATION"""
+        """Process and display enhanced detection results"""
         # Clear previous results
         self.results_text.delete(1.0, tk.END)
+        self.detected_listbox.delete(0, tk.END)
+        self.missing_listbox.delete(0, tk.END)
         
         # Initialize counters
         detected_classes = {}
         class_counts = {}
         all_classes = set(range(len(self.class_names))) if self.class_names else set()
         detected_class_ids = set()
+        total_confidence = 0
+        total_detections = 0
         
         # Analyze results
-        if hasattr(results[0], 'boxes'):
+        if hasattr(results[0], 'boxes') and results[0].boxes is not None:
             boxes = results[0].boxes
             
             # Count detections by class
@@ -964,129 +1366,148 @@ dataset/
                 detected_classes[class_name].append(conf)
                 class_counts[cls] = class_counts.get(cls, 0) + 1
                 detected_class_ids.add(cls)
+                total_confidence += conf
+                total_detections += 1
             
             # Build results text
-            results_text = f"📊 DETECTION RESULTS ANALYSIS\n"
-            results_text += "=" * 50 + "\n\n"
+            results_text = "=" * 70 + "\n"
+            results_text += "DETECTION RESULTS ANALYSIS\n"
+            results_text += "=" * 70 + "\n\n"
             results_text += f"📁 Image: {os.path.basename(image_path)}\n"
             results_text += f"📅 Analysis Time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
-            results_text += "=" * 50 + "\n\n"
+            results_text += f"🤖 Model: {os.path.basename(self.current_model_path)}\n"
+            results_text += f"🎯 Confidence Threshold: 0.25 (default)\n"
+            results_text += "-" * 70 + "\n\n"
             
-            # Detected objects with detailed information
+            # Detected objects
             if detected_classes:
                 results_text += "✅ DETECTED PPE ITEMS:\n"
-                results_text += "-" * 30 + "\n"
+                results_text += "-" * 40 + "\n"
                 
                 for class_name, confidences in detected_classes.items():
                     count = len(confidences)
                     avg_conf = sum(confidences) / count if count > 0 else 0
-                    max_conf = max(confidences) if confidences else 0
                     
-                    # Get class ID for requirements
-                    cls_id = next((i for i, name in enumerate(self.class_names) if name == class_name), None)
+                    results_text += f"• {class_name}: {count} instances (avg confidence: {avg_conf:.1%})\n"
                     
-                    if cls_id is not None and cls_id in self.ppe_requirements:
-                        req_min = self.ppe_requirements[cls_id]['min_instances']
-                        is_critical = self.ppe_requirements[cls_id]['critical']
-                        status = "✓ SATISFIED" if count >= req_min else "⚠ INSUFFICIENT"
-                        critical_mark = "🔴" if is_critical else "🟡"
-                        
-                        results_text += f"{critical_mark} {class_name}:\n"
-                        results_text += f"   • Instances: {count}/{req_min} {status}\n"
-                        results_text += f"   • Avg Confidence: {avg_conf:.1%}\n"
-                        results_text += f"   • Max Confidence: {max_conf:.1%}\n"
-                    else:
-                        results_text += f"🟢 {class_name}:\n"
-                        results_text += f"   • Instances: {count}\n"
-                        results_text += f"   • Avg Confidence: {avg_conf:.1%}\n"
+                    # Add to detected listbox
+                    display_text = f"{class_name} ({count}×, {avg_conf:.0%} conf)"
+                    self.detected_listbox.insert(tk.END, display_text)
             else:
                 results_text += "❌ NO PPE ITEMS DETECTED\n"
             
-            results_text += "\n" + "=" * 50 + "\n\n"
+            results_text += "\n" + "-" * 70 + "\n\n"
             
-            # Missing PPE items analysis
-            missing_classes = all_classes - detected_class_ids
-            if missing_classes:
-                results_text += "⚠ MISSING PPE ITEMS:\n"
-                results_text += "-" * 30 + "\n"
+            # Missing PPE items - Only show actual PPE classes from the model
+            if self.class_names:
+                # Define which classes are actual PPE items (not including 'human' or other non-PPE)
+                ppe_classes = []
+                non_ppe_classes = ['person', 'human', 'people', 'man', 'woman']
                 
-                critical_missing = 0
-                for cls in missing_classes:
-                    if cls < len(self.class_names):
-                        class_name = self.class_names[cls]
-                        if cls in self.ppe_requirements and self.ppe_requirements[cls]['critical']:
-                            results_text += f"🔴 {class_name} - CRITICAL MISSING\n"
-                            critical_missing += 1
-                        else:
-                            results_text += f"🟡 {class_name} - Recommended\n"
+                for i, class_name in enumerate(self.class_names):
+                    class_lower = class_name.lower()
+                    is_ppe = True
+                    for non_ppe in non_ppe_classes:
+                        if non_ppe in class_lower:
+                            is_ppe = False
+                            break
+                    if is_ppe:
+                        ppe_classes.append(i)
+                
+                missing_ppe_classes = set(ppe_classes) - detected_class_ids
+                
+                if missing_ppe_classes:
+                    results_text += "⚠ MISSING PPE ITEMS:\n"
+                    results_text += "-" * 40 + "\n"
+                    
+                    for cls in missing_ppe_classes:
+                        if cls < len(self.class_names):
+                            class_name = self.class_names[cls]
+                            results_text += f"• {class_name}\n"
+                            
+                            # Add to missing listbox
+                            self.missing_listbox.insert(tk.END, class_name)
+                else:
+                    results_text += "✅ ALL PPE ITEMS DETECTED\n"
             else:
-                results_text += "✅ ALL PPE ITEMS PRESENT\n"
+                results_text += "⚠ Class names not available\n"
             
-            results_text += "\n" + "=" * 50 + "\n\n"
+            results_text += "\n" + "-" * 70 + "\n\n"
             
-            # Calculate comprehensive safety compliance
-            safety_percentage, details = self.calculate_safety_compliance(class_counts, all_classes)
+            # Calculate average confidence
+            avg_confidence = total_confidence / total_detections if total_detections > 0 else 0
+            
+            # Calculate safety compliance
+            safety_percentage = self.calculate_safety_percentage(class_counts, all_classes)
             
             results_text += "📈 SAFETY COMPLIANCE ANALYSIS\n"
-            results_text += "-" * 30 + "\n"
-            results_text += f"Overall Safety Score: {safety_percentage:.1f}%\n\n"
+            results_text += "-" * 40 + "\n"
+            results_text += f"Overall Safety Score: {safety_percentage:.1f}%\n"
+            results_text += f"Safety Status: {self.get_safety_status(safety_percentage)}\n\n"
             
-            # Add breakdown
-            results_text += "Breakdown:\n"
-            for detail in details:
-                results_text += f"• {detail}\n"
+            results_text += f"📊 Statistics:\n"
+            results_text += f"  • Detected Items: {len(detected_classes)}/{len(all_classes)}\n"
+            results_text += f"  • Total Detections: {total_detections}\n"
+            results_text += f"  • Average Confidence: {avg_confidence:.1%}\n"
+            results_text += f"  • Missing PPE Items: {self.missing_listbox.size()}\n"
             
             # Store results for visualization
             self.detection_results = {
                 'detected': detected_classes,
-                'missing': missing_classes,
+                'missing': missing_ppe_classes if 'missing_ppe_classes' in locals() else set(),
                 'class_counts': class_counts,
                 'safety_percentage': safety_percentage,
                 'total_classes': len(all_classes),
-                'critical_missing': critical_missing
+                'detected_count': len(detected_classes),
+                'missing_count': self.missing_listbox.size(),
+                'total_detections': total_detections,
+                'avg_confidence': avg_confidence
             }
             
         else:
             results_text = "❌ No detections found in the image.\n"
-            results_text += "=" * 50 + "\n\n"
+            results_text += "=" * 70 + "\n\n"
             results_text += "Possible reasons:\n"
             results_text += "1. Image quality is poor\n"
             results_text += "2. PPE items are not visible\n"
-            results_text += "3. Confidence threshold is too high\n"
+            results_text += "3. Model is not trained for these items\n"
             
             self.detection_results = {
                 'detected': {},
-                'missing': all_classes,
+                'missing': set(),
                 'class_counts': {},
                 'safety_percentage': 0.0,
-                'total_classes': len(all_classes),
-                'critical_missing': len(all_classes)
+                'total_classes': len(all_classes) if self.class_names else 0,
+                'detected_count': 0,
+                'missing_count': 0,
+                'total_detections': 0,
+                'avg_confidence': 0.0
             }
         
         # Display results
         self.results_text.insert(tk.END, results_text)
         
-        # Update safety label
-        safety_level = "GOOD" if safety_percentage >= 80 else "MODERATE" if safety_percentage >= 60 else "POOR"
-        safety_color = 'green' if safety_percentage >= 80 else 'orange' if safety_percentage >= 60 else 'red'
+        # Update summary statistics
+        self.update_summary_statistics()
         
-        safety_text = f"Safety Compliance: {safety_percentage:.1f}% ({safety_level})"
-        self.safety_label.config(text=safety_text, fg=safety_color)
+        # Update safety display
+        self.update_safety_display()
         
-        # Update explanation
-        self.update_explanation()
-        
-        # Update visualization
-        self.update_visualization()
+        # Update visualizations
+        self.update_charts()
     
-    def calculate_safety_compliance(self, class_counts, all_classes):
-        """Calculate comprehensive safety compliance percentage"""
+    def calculate_safety_percentage(self, class_counts, all_classes):
+        """
+        Calculate reasonable safety percentage based on:
+        1. Critical PPE items have higher weight
+        2. Partial credit for some items (like 1 glove instead of 2)
+        3. Overall detection confidence
+        """
         if not all_classes:
-            return 0.0, ["No PPE classes defined"]
+            return 0.0
         
         total_score = 0
         max_score = 0
-        details = []
         
         for cls in all_classes:
             if cls in self.ppe_requirements:
@@ -1097,33 +1518,17 @@ dataset/
                 
                 # Calculate score for this class
                 if detected >= required:
-                    class_score = weight * 100  # Full points
-                    status = "✓ Complete"
+                    # Full points for meeting requirements
+                    class_score = weight * 100
                 elif detected > 0:
-                    class_score = weight * 50 * (detected / required)  # Partial points
-                    status = f"⚠ Partial ({detected}/{required})"
+                    # Partial points (e.g., 1 glove instead of 2 gives 50% credit)
+                    class_score = weight * 100 * (detected / required)
                 else:
+                    # No points for missing items
                     class_score = 0
-                    status = "❌ Missing"
                 
                 total_score += class_score
                 max_score += weight * 100
-                
-                # Add to details
-                class_name = self.class_names[cls] if cls < len(self.class_names) else f"Class{cls}"
-                details.append(f"{class_name}: {status} ({class_score/weight:.0f} pts)")
-            else:
-                # Default calculation for classes without specific requirements
-                detected = class_counts.get(cls, 0)
-                if detected > 0:
-                    total_score += 100
-                    status = "✓ Present"
-                else:
-                    status = "❌ Missing"
-                max_score += 100
-                
-                class_name = self.class_names[cls] if cls < len(self.class_names) else f"Class{cls}"
-                details.append(f"{class_name}: {status}")
         
         # Calculate overall percentage
         if max_score > 0:
@@ -1132,158 +1537,194 @@ dataset/
             safety_percentage = 0.0
         
         # Round to 1 decimal place
-        safety_percentage = round(safety_percentage, 1)
-        
-        return safety_percentage, details
+        return round(safety_percentage, 1)
     
-    def update_explanation(self):
-        """Update the explanation text based on detection results"""
-        explanation = ""
-        
-        if not self.detection_results:
-            explanation = "No detection results available. Please run detection first."
+    def get_safety_status(self, percentage):
+        """Get safety status based on percentage"""
+        if percentage >= 85:
+            return "EXCELLENT ✅"
+        elif percentage >= 70:
+            return "GOOD ✓"
+        elif percentage >= 50:
+            return "MODERATE ⚠"
+        elif percentage >= 30:
+            return "POOR ⚠"
         else:
-            safety_percentage = self.detection_results['safety_percentage']
-            critical_missing = self.detection_results.get('critical_missing', 0)
-            
-            if safety_percentage >= 90:
-                explanation = "✅ EXCELLENT SAFETY COMPLIANCE\n\n"
-                explanation += "All critical PPE items are properly detected and meet minimum requirements. "
-                explanation += "The work environment is considered SAFE according to OSHA standards."
-                explanation += "\n\nRecommendations: Continue current safety practices."
-                
-            elif safety_percentage >= 75:
-                explanation = "⚠ MODERATE SAFETY COMPLIANCE\n\n"
-                explanation += "Most PPE items are detected, but some may be missing or insufficient. "
-                explanation += "Review the missing items and ensure all required PPE is properly worn."
-                
-                if critical_missing > 0:
-                    explanation += f"\n\n⚠ CRITICAL ISSUE: {critical_missing} critical PPE item(s) missing. "
-                    explanation += "Immediate action required."
-                    
-                explanation += "\n\nRecommendations:\n"
-                explanation += "1. Verify all critical PPE items are present\n"
-                explanation += "2. Check PPE fit and proper usage\n"
-                explanation += "3. Conduct safety brief before proceeding"
-                
-            elif safety_percentage >= 50:
-                explanation = "⚠ LOW SAFETY COMPLIANCE\n\n"
-                explanation += "Multiple PPE items are missing or insufficient. "
-                explanation += "Significant safety risks present."
-                
-                if critical_missing > 0:
-                    explanation += f"\n\n🔴 CRITICAL ALERT: {critical_missing} critical PPE item(s) missing. "
-                    explanation += "WORK SHOULD NOT PROCEED."
-                    
-                explanation += "\n\nImmediate Actions Required:\n"
-                explanation += "1. STOP all work immediately\n"
-                explanation += "2. Ensure all missing PPE is obtained and worn\n"
-                explanation += "3. Conduct safety training if needed\n"
-                explanation += "4. Supervisory approval required to resume"
-                
-            else:
-                explanation = "❌ POOR SAFETY COMPLIANCE\n\n"
-                explanation += "Inadequate PPE detection indicates serious safety violations. "
-                explanation += "High risk of injury or accident."
-                
-                if critical_missing > 0:
-                    explanation += f"\n\n🔴 EMERGENCY ALERT: {critical_missing} critical PPE item(s) missing. "
-                    explanation += "IMMEDIATE EVACUATION MAY BE NECESSARY."
-                    
-                explanation += "\n\nEMERGENCY PROCEDURES:\n"
-                explanation += "1. EVACUATE area if immediate danger exists\n"
-                explanation += "2. Report to safety officer immediately\n"
-                explanation += "3. Full safety audit required\n"
-                explanation += "4. All personnel must complete safety retraining"
-        
-        self.explanation_text.delete(1.0, tk.END)
-        self.explanation_text.insert(tk.END, explanation)
+            return "CRITICAL ❌"
     
-    def update_visualization(self):
-        """Update the visualization chart with detection results"""
+    def update_summary_statistics(self):
+        """Update the summary statistics display"""
+        if not self.detection_results:
+            self.summary_stats_label.config(text="📊 No detection results yet")
+            return
+        
+        detected = self.detection_results['detected_count']
+        missing = self.detection_results['missing_count']
+        total = self.detection_results['total_classes']
+        
+        stats_text = f"📊 Detected: {detected}/{total} | Missing: {missing}/{total}"
+        self.summary_stats_label.config(text=stats_text)
+    
+    def update_safety_display(self):
+        """Update the safety percentage and status display"""
+        if not self.detection_results:
+            self.safety_percentage_label.config(text="0.0%")
+            self.safety_status_label.config(text="NOT CALCULATED")
+            self.safety_breakdown_label.config(text="")
+            return
+        
+        safety_percentage = self.detection_results['safety_percentage']
+        safety_status = self.get_safety_status(safety_percentage)
+        
+        # Update percentage display
+        self.safety_percentage_label.config(text=f"{safety_percentage:.1f}%")
+        
+        # Update status with color coding
+        if "EXCELLENT" in safety_status:
+            color = '#27ae60'  # Green
+            bg_color = '#2c3e50'
+        elif "GOOD" in safety_status:
+            color = '#2ecc71'  # Light Green
+            bg_color = '#2c3e50'
+        elif "MODERATE" in safety_status:
+            color = '#f39c12'  # Orange
+            bg_color = '#2c3e50'
+        elif "POOR" in safety_status:
+            color = '#e67e22'  # Dark Orange
+            bg_color = '#2c3e50'
+        else:
+            color = '#e74c3c'  # Red
+            bg_color = '#2c3e50'
+        
+        self.safety_status_label.config(text=safety_status, fg=color)
+        self.safety_percentage_label.config(fg=color)
+        
+        # Update breakdown
+        detected = self.detection_results['detected_count']
+        missing = self.detection_results['missing_count']
+        total = self.detection_results['total_classes']
+        avg_conf = self.detection_results.get('avg_confidence', 0)
+        
+        breakdown_text = f"Detected Items: {detected}/{total}\n"
+        breakdown_text += f"Missing Items: {missing}/{total}\n"
+        breakdown_text += f"Avg Confidence: {avg_conf:.1%}\n"
+        breakdown_text += f"Safety Score: {safety_percentage:.1f}%"
+        
+        self.safety_breakdown_label.config(text=breakdown_text)
+    
+    def update_charts(self):
+        """Update the bar chart and pie chart visualizations"""
         if not self.detection_results:
             return
         
-        # Clear previous chart
-        self.chart_canvas.delete("all")
-        
-        # Create figure for matplotlib
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 5))
+        # Clear previous charts
+        for widget in self.bar_chart_canvas.winfo_children():
+            widget.destroy()
+        for widget in self.pie_chart_canvas.winfo_children():
+            widget.destroy()
         
         # Get data for visualization
-        detected_count = len(self.detection_results['detected'])
-        missing_count = len(self.detection_results['missing'])
+        detected_classes = self.detection_results.get('detected', {})
         safety_percentage = self.detection_results['safety_percentage']
-        class_counts = self.detection_results.get('class_counts', {})
         
-        # Chart 1: Detected vs Missing (Pie Chart)
-        if detected_count + missing_count > 0:
-            sizes = [detected_count, missing_count]
-            labels = [f'Detected\n{detected_count}', f'Missing\n{missing_count}']
-            colors = ['#4CAF50', '#f44336']
-            explode = (0.1, 0)  # explode the detected slice
+        # ================== BAR CHART: Detection Count by Class ==================
+        fig1, ax1 = plt.subplots(figsize=(6, 3.5))
+        fig1.patch.set_facecolor('#f8f9fa')
+        ax1.set_facecolor('#ffffff')
+        
+        if detected_classes:
+            class_names = list(detected_classes.keys())
+            counts = [len(detected_classes[name]) for name in class_names]
             
-            ax1.pie(sizes, explode=explode, labels=labels, colors=colors,
-                   autopct='%1.1f%%', shadow=True, startangle=90)
-            ax1.set_title('PPE Items Detection Status', fontweight='bold')
-            ax1.axis('equal')  # Equal aspect ratio ensures pie is drawn as a circle
+            # Sort by count
+            sorted_indices = np.argsort(counts)[::-1]  # Descending
+            class_names = [class_names[i] for i in sorted_indices]
+            counts = [counts[i] for i in sorted_indices]
+            
+            # Limit to top 8 for readability
+            max_items = min(8, len(class_names))
+            class_names = class_names[:max_items]
+            counts = counts[:max_items]
+            
+            colors = plt.cm.Set3(np.arange(len(class_names)) / len(class_names))
+            bars = ax1.bar(range(len(class_names)), counts, color=colors, alpha=0.8)
+            
+            ax1.set_xlabel('PPE Classes', fontweight='bold')
+            ax1.set_ylabel('Detection Count', fontweight='bold')
+            ax1.set_title('Top Detected Items', fontsize=12, fontweight='bold', pad=15)
+            ax1.set_xticks(range(len(class_names)))
+            ax1.set_xticklabels(class_names, rotation=45, ha='right', fontsize=9)
+            
+            # Add count labels on bars
+            for bar in bars:
+                height = bar.get_height()
+                ax1.text(bar.get_x() + bar.get_width()/2., height + 0.1,
+                        f'{int(height)}', ha='center', va='bottom', fontsize=9)
         else:
-            ax1.text(0.5, 0.5, 'No Data Available', 
+            ax1.text(0.5, 0.5, 'No PPE Items Detected', 
                     horizontalalignment='center', verticalalignment='center',
-                    transform=ax1.transAxes, fontsize=12)
-            ax1.set_title('PPE Items Detection Status', fontweight='bold')
+                    transform=ax1.transAxes, fontsize=12, fontweight='bold',
+                    color='#7f8c8d')
+            ax1.set_title('Top Detected Items', fontsize=12, fontweight='bold', pad=15)
         
-        # Chart 2: Safety Compliance Gauge
-        ax2 = plt.subplot(1, 2, 2, projection='polar')
-        
-        # Create gauge chart
-        categories = ['Excellent', 'Good', 'Moderate', 'Poor', 'Critical']
-        N = len(categories)
-        
-        # What is the angle of each axis
-        angles = [n / float(N) * 2 * np.pi for n in range(N)]
-        angles += angles[:1]
-        
-        # Initialise the spider plot
-        ax2.set_theta_offset(np.pi / 2)
-        ax2.set_theta_direction(-1)
-        
-        # Draw one axe per variable + add labels
-        plt.xticks(angles[:-1], categories)
-        
-        # Draw ylabels
-        ax2.set_rlabel_position(0)
-        plt.yticks([20, 40, 60, 80, 100], ["20", "40", "60", "80", "100"], color="grey", size=7)
-        plt.ylim(0, 100)
-        
-        # Plot safety percentage
-        safety_angle = (safety_percentage / 100) * 2 * np.pi
-        ax2.plot([0, safety_angle], [0, safety_percentage], color='red', linewidth=3)
-        ax2.fill_between([0, safety_angle], 0, safety_percentage, color='red', alpha=0.3)
-        
-        # Add value text
-        ax2.text(0, 0, f'{safety_percentage:.1f}%', 
-                horizontalalignment='center', verticalalignment='center',
-                fontsize=20, fontweight='bold')
-        
-        ax2.set_title('Safety Compliance Gauge', fontweight='bold', pad=20)
-        
-        # Adjust layout
         plt.tight_layout()
         
-        # Convert matplotlib figure to tkinter canvas
-        canvas = FigureCanvasTkAgg(fig, master=self.chart_canvas)
-        canvas.draw()
+        # Embed bar chart in tkinter
+        canvas1 = FigureCanvasTkAgg(fig1, master=self.bar_chart_canvas)
+        canvas1.draw()
+        chart1_widget = canvas1.get_tk_widget()
+        chart1_widget.pack(fill='both', expand=True)
         
-        # Get the tkinter widget and pack it
-        chart_widget = canvas.get_tk_widget()
-        chart_widget.pack(fill='both', expand=True)
+        # ================== PIE CHART: Safety Distribution ==================
+        fig2, ax2 = plt.subplots(figsize=(6, 3.5))
+        fig2.patch.set_facecolor('#f8f9fa')
+        ax2.set_facecolor('#ffffff')
+        
+        safe_percentage = safety_percentage
+        unsafe_percentage = max(0, 100 - safe_percentage)
+        
+        sizes = [safe_percentage, unsafe_percentage]
+        labels = [f'Safe\n{safe_percentage:.1f}%', f'Unsafe\n{unsafe_percentage:.1f}%']
+        colors = ['#27ae60', '#e74c3c']
+        
+        # Create pie chart with shadow and explode
+        explode = (0.05, 0)
+        wedges, texts, autotexts = ax2.pie(sizes, explode=explode, labels=labels, 
+                                          colors=colors, autopct='%1.1f%%',
+                                          shadow=True, startangle=90,
+                                          textprops={'fontweight': 'bold'})
+        
+        # Style the autopct text
+        for autotext in autotexts:
+            autotext.set_color('white')
+            autotext.set_fontweight('bold')
+            autotext.set_fontsize(10)
+        
+        ax2.set_title('Safety Distribution', fontsize=12, fontweight='bold', pad=15)
+        
+        # Add a circle at the center for a donut chart effect
+        centre_circle = plt.Circle((0,0), 0.70, fc='white')
+        ax2.add_artist(centre_circle)
+        
+        # Add safety status in center
+        safety_status = self.get_safety_status(safety_percentage).replace("✅", "").replace("❌", "").replace("⚠", "").strip()
+        ax2.text(0, 0, safety_status, ha='center', va='center', 
+                fontsize=11, fontweight='bold', color='#2c3e50')
+        
+        plt.tight_layout()
+        
+        # Embed pie chart in tkinter
+        canvas2 = FigureCanvasTkAgg(fig2, master=self.pie_chart_canvas)
+        canvas2.draw()
+        chart2_widget = canvas2.get_tk_widget()
+        chart2_widget.pack(fill='both', expand=True)
     
     def save_detection_output(self, results, image_path):
         """Save the detection output to a file"""
         try:
-            # Create output directory
-            output_dir = "detection_output"
+            # Create output directory with timestamp
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            output_dir = f"detection_output_{timestamp}"
             os.makedirs(output_dir, exist_ok=True)
             
             # Save the image with detections
@@ -1341,10 +1782,10 @@ dataset/
                 f.write(self.results_text.get(1.0, tk.END))
             
             # Log the save action
-            self.log_message(f"Saved detection output to: {output_path}")
+            self.log_message(f"✓ Saved detection output to: {output_dir}")
             
         except Exception as e:
-            self.log_message(f"Error saving output: {str(e)}")
+            self.log_message(f"✗ Error saving output: {str(e)}")
 
 
 # ============================================================================
