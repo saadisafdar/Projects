@@ -53,12 +53,13 @@ from collections import deque
 
 
 graph = {
-    0: [1, 3, 4],
-    1: [2],
-    2: [],
-    3: [5],
-    4: [5],
-    5: []
+    'A': ['B', 'C', 'D'],
+    'B': ['A', 'E'],
+    'C': ['A', 'D', 'F'],
+    'D': ['A', 'C', 'E', 'G'],
+    'E': ['B', 'D', 'G'],
+    'F': ['C', 'G'],
+    'G': ['D', 'E', 'F']
 }
 
 def bfs(start_node):
@@ -76,36 +77,6 @@ def bfs(start_node):
                 if neighbor not in visited:
                     queue.append(neighbor)
 
-bfs(0)
+bfs('A')
 
 
-
-graph = {
-    1: [2, 7, 8],
-    2: [3, 6],
-    3: [4, 5],
-    4: [],
-    5: [],
-    6: [],
-    7: [],
-    8: [9, 12],
-    9: [10, 11],
-    10: [],
-    11: [],
-    12: []
-}
-
-
-def dfs(node, visited=None):
-    if visited is None:
-        visited = set()
-    
-    if node not in visited:
-        print(node, end=" ")
-        visited.add(node)
-        
-        for neighbor in graph[node]:
-            dfs(neighbor, visited)
-
-print("\nDFS Traversal: ")
-dfs(1)
