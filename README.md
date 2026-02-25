@@ -1,27 +1,10 @@
-# Python Projects
+# 🚀 Projects
 
-Collection of Python applications and scripts demonstrating GUI development, API usage, and automation.
+This repository contains my **complete projects**, including:
 
-## 🚀 Featured Projects
+- AI / Machine Learning systems  
+- Python applications  
+- Automation tools  
+- Computer vision projects  
 
-### Image Viewer App
-- Desktop application with Tkinter GUI
-- Features: zoom, fullscreen, slideshow, folder navigation
-- Technologies: Python, Tkinter, PIL
-
-### Weather Application
-- Real-time weather data viewer
-- API integration with JSON handling
-- Technologies: Python, requests, JSON
-
-### Utility Scripts
-- File handling tools and automation scripts
-- Includes data processing and text management
-- Technologies: Python standard library
-
-## 🛠️ Skills Demonstrated
-- GUI Development with Tkinter
-- API integration and JSON parsing
-- File handling and automation
-- Object-Oriented Programming
-- Error handling and debugging
+🎯 Goal: Build production-ready applications and real-world solutions.
