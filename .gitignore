@@ -31,19 +31,6 @@ wheels/
 .ipynb_checkpoints/
 
 # =========================
-# Machine Learning / Data
-# =========================
-*.pt
-*.pth
-*.onnx
-*.ckpt
-*.h5
-*.npz
-*.npy
-*.pkl
-*.joblib
-
-# =========================
 # DATASETS (IMPORTANT)
 # Ignore images + labels inside datasets
 # =========================
